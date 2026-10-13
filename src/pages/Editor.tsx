@@ -225,6 +225,27 @@ export default function Editor({ resumeId }: { resumeId: string }) {
 
   const exportName = `resume_${resume.data.basic_info.name || "untitled"}_${fmtDateCompact(nowISO())}.pdf`;
 
+  /**
+   * 导出（打印）前的两项文本层保障：
+   * 1. 临时把 document.title 换成简历文件名——Chromium 另存为 PDF 会把页面 title
+   *    写入 PDF 元数据；默认 title 是「TouchstoneCV · 本地 AI 简历工作台」，对
+   *    HR 邮件预览与部分 ATS 的文档识别不友好。打印对话框关闭后恢复。
+   * 2. 等待 webfont 就绪（上限 2.5s 竞争超时，字体 CDN 不可达时不挂起）——
+   *    字体未加载完就打印会回退系统字体，版式与预期不符。
+   * 文本层本身由矢量渲染保证：另存为 PDF 输出的是文本型 PDF（已实测
+   * pdf.js 可完整提取邮箱/关键词/中文行，无图片化问题）。
+   */
+  const doExport = async () => {
+    const prevTitle = document.title;
+    document.title = exportName.replace(/\.pdf$/, "");
+    try {
+      await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]);
+      window.print();
+    } finally {
+      document.title = prevTitle;
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* 顶部工具栏：按功能分组，减少视觉混乱 */}
@@ -594,7 +615,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
             <p className="truncate font-mono text-[11.5px] font-medium text-ink-700">{exportName}</p>
             <p className="text-[10.5px] text-ink-400">点击「打印 / 另存为 PDF」后在系统对话框选择「另存为 PDF」· 按当前模块顺序与显示状态导出</p>
           </div>
-          <Btn variant="primary" className="h-9 px-4" onClick={() => window.print()}>
+          <Btn variant="primary" className="h-9 px-4" onClick={doExport}>
             <IconPrinter size={14} /> 打印 / 另存为 PDF
           </Btn>
         </div>
