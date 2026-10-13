@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- TouchstoneCV favicon v4 · 小尺寸辨识度优化（对应品牌标识 v2「上扬擦痕」）
+       相比 v3 的改动：去掉岩块与副擦痕（16px 下全是噪点），
+       主擦痕加粗到中段约 12/64 并去掉描边，星屑放大到 r=4.2 并靠近痕尖；
+       底块沿用 v1.4 靛蓝渐变，动感靠对角线，清爽靠只留一笔。 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="0.5" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#bg)"/>
+  <path d="M6.2 21.2 Q15.35 15.85 22.5 8.5 Q17.65 18.15 10.8 25.8 Z" fill="#FFFFFF"/>
+  <circle cx="25.25" cy="6.25" r="2.1" fill="#F5B33F"/>
+</svg>

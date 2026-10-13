@@ -2,8 +2,8 @@
  * JD 解析与匹配：MVP 采用规则策略（技能匹配 / 关键词覆盖 / 表达质量）
  * 不依赖大模型即可完成全部判断
  * ------------------------------------------------------------------ */
-import type { JD, JDStructured, MatchReport } from "../types";
-import { uid, nowISO, resumeToText, clamp } from "./utils";
+import type { JD, JDStructured, MatchReport, Resume } from "../types";
+import { uid, nowISO, resumeToText, clamp, containsTerm } from "./utils";
 
 const SKILL_DICT = [
   "react", "vue", "angular", "svelte", "next.js", "nextjs", "nuxt", "typescript", "javascript", "es6",
@@ -113,8 +113,8 @@ export function matchResume(resumeText: string, jd: JD): MatchReport {
   const skills = jd.structured.skills;
   const kws = jd.structured.keywords;
 
-  const matchedSkills = skills.filter((s) => resumeText.includes(s.toLowerCase()));
-  const matchedKws = kws.filter((k) => resumeText.includes(k.toLowerCase()));
+  const matchedSkills = skills.filter((s) => containsTerm(resumeText, s));
+  const matchedKws = kws.filter((k) => containsTerm(resumeText, k));
 
   const skill_match_score = skills.length ? pct(matchedSkills.length, skills.length) : pct(matchedKws.length, Math.max(1, kws.length));
   const keyword_coverage_score = pct(matchedKws.length, Math.max(1, kws.length));
@@ -126,7 +126,7 @@ export function matchResume(resumeText: string, jd: JD): MatchReport {
   for (const line of reqLines.slice(0, 10)) {
     const toks = tokenize(line).slice(0, 8);
     if (!toks.length) continue;
-    const hit = toks.filter((t) => resumeText.includes(t)).length;
+    const hit = toks.filter((t) => containsTerm(resumeText, t)).length;
     expSum += hit / toks.length;
     expN++;
   }
@@ -145,8 +145,8 @@ export function matchResume(resumeText: string, jd: JD): MatchReport {
     skill_match_score * 0.35 + keyword_coverage_score * 0.25 + experience_relevance_score * 0.25 + writing_quality_score * 0.15
   );
 
-  const missing_skills = skills.filter((s) => !resumeText.includes(s.toLowerCase())).slice(0, 10);
-  const missing_keywords = kws.filter((k) => !resumeText.includes(k.toLowerCase()) && !missing_skills.includes(k)).slice(0, 12);
+  const missing_skills = skills.filter((s) => !containsTerm(resumeText, s)).slice(0, 10);
+  const missing_keywords = kws.filter((k) => !containsTerm(resumeText, k) && !missing_skills.includes(k)).slice(0, 12);
 
   const suggestions: string[] = [];
   if (missing_skills.length)
@@ -180,4 +180,42 @@ export function matchResumeData(
   jd: JD
 ): MatchReport {
   return matchResume(resumeToText(data), jd);
+}
+
+export function jdEvidence(resume: Resume, jd: JD) {
+  return [...new Set([...jd.structured.skills, ...jd.structured.keywords])].map((term) => {
+    const sourceLines = jd.raw_text.split(/\r?\n/).filter((line) => containsTerm(line, term));
+    const priority = sourceLines.some((line) => /(必须|要求|精通|掌握|must|required)/i.test(line) && !/(优先|加分|preferred|nice.to.have)/i.test(line)) ? "必需" :
+      sourceLines.some((line) => /(优先|加分|preferred|nice.to.have)/i.test(line)) ? "优先" : "待确认";
+    const matches = resume.data.sections.filter((s) => s.visible).flatMap((s) => s.blocks.filter((b) => b.visible).flatMap((b) => {
+      const text = [b.title, b.subtitle, b.description, ...b.bullets, ...b.skills].join(" ");
+      return containsTerm(text, term) ? [{ sectionId: s.section_id, blockId: b.block_id, title: b.title || s.title }] : [];
+    }));
+    return { term, sourceLines, priority, matches };
+  });
+}
+
+export function qualificationEvidence(resume: Resume, jd: JD) {
+  const output: Array<{ label: string; status: "有依据" | "存在差距" | "待确认"; evidence: string }> = [];
+  const rank = (text: string) => /博士|phd|doctor/i.test(text) ? 5 : /硕士|master/i.test(text) ? 4 : /本科|bachelor/i.test(text) ? 3 : /大专|associate/i.test(text) ? 2 : 0;
+  if (jd.structured.education) {
+    const education = resume.data.sections.filter((s) => s.visible && s.type === "education").flatMap((s) => s.blocks.filter((b) => b.visible));
+    const levels = education.map((b) => rank([b.title, b.subtitle, b.description].join(" ")));
+    const level = Math.max(0, ...levels); const needed = rank(jd.structured.education);
+    output.push({ label: `学历要求：${jd.structured.education}`, status: !level || !needed ? "待确认" : level >= needed ? "有依据" : "存在差距", evidence: education.map((b) => [b.title, b.subtitle].filter(Boolean).join(" · ")).join("；") || "简历中没有可见的教育信息" });
+  }
+  if (jd.structured.experience_years !== null) {
+    const jobs = resume.data.sections.filter((s) => s.visible && s.type === "work_experience").flatMap((s) => s.blocks.filter((b) => b.visible));
+    const month = (date: string) => { const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(date); return m ? Number(m[1]) * 12 + Number(m[2]) - 1 : null; };
+    const now = new Date(); const current = now.getFullYear() * 12 + now.getMonth();
+    const ranges: Array<[number, number]> = []; let uncertain = !jobs.length;
+    for (const b of jobs) { const start = month(b.start_date); const end = /^(至今|现在|present|now)$/i.test(b.end_date) ? current : month(b.end_date);
+      if (start === null || end === null || end < start || end > current || start > current) uncertain = true; else ranges.push([start, end]); }
+    ranges.sort((a, b) => a[0] - b[0]); let months = 0; let merged: [number, number] | null = null;
+    for (const range of ranges) { if (!merged) merged = [...range]; else if (range[0] <= merged[1]) merged[1] = Math.max(merged[1], range[1]); else { months += merged[1] - merged[0]; merged = [...range]; } }
+    if (merged) months += merged[1] - merged[0];
+    const years = Math.floor(months / 12 * 10) / 10;
+    output.push({ label: `经验要求：${jd.structured.experience_years} 年`, status: uncertain ? "待确认" : years >= jd.structured.experience_years ? "有依据" : "存在差距", evidence: uncertain ? "存在未填写或非年月格式的日期，需要人工确认" : `可见工作经历去除重叠后约 ${years} 年；项目与实习是否计入需按岗位要求确认` });
+  }
+  return output;
 }

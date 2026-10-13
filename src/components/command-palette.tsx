@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cx } from "../lib/utils";
-import { useApp } from "../lib/store";
+import { useAppSlice } from "../lib/store";
 import { emptyResume } from "../lib/parser";
 import { buildSampleResume } from "../lib/samples";
 import { IconClipboard, IconCpu, IconDatabase, IconFile, IconPlus, IconSearch, IconSpark } from "./icons";
@@ -31,7 +31,7 @@ type Cmd = {
 };
 
 export default function CommandPalette() {
-  const { resumes, view, go, createResume, toast } = useApp();
+  const { resumes, view, go, createResume, toast } = useAppSlice("resumes", "view", "go", "createResume", "toast");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);

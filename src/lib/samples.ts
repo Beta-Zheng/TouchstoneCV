@@ -378,9 +378,20 @@ function profileData(_: Identity): Pick<ResumeData, "sections"> & { roleTitle: s
 const PROFILES = [profileAI, profileFrontend, profileData];
 
 /** 每次调用：随机身份 × 随机档案 → 一份完整示例简历 */
-export function buildSampleResume(): ResumeData {
+export type SampleKind = "ai" | "frontend" | "data";
+export function buildSampleResume(kind?: SampleKind, audience: "student" | "experienced" | "career_change" = "experienced"): ResumeData {
   const who = pickIdentity();
-  const profile = PROFILES[Math.floor(Math.random() * PROFILES.length)](who);
+  const factory = kind ? { ai: profileAI, frontend: profileFrontend, data: profileData }[kind] : PROFILES[Math.floor(Math.random() * PROFILES.length)];
+  const profile = factory(who);
+  if (audience === "student") {
+    profile.sections = profile.sections.filter((s) => s.type !== "work_experience" && s.type !== "certifications");
+    const summary = profile.sections.find((s) => s.type === "summary");
+    if (summary) summary.blocks.forEach((b) => { b.description = "应届毕业生，以下项目为虚构示例，请替换为自己的课程、实习或项目经历。"; b.bullets = []; });
+  }
+  if (audience === "career_change") {
+    const summary = profile.sections.find((s) => s.type === "summary");
+    if (summary) summary.blocks.forEach((b) => { b.description = "希望转向该岗位，请在此说明可迁移能力，并用真实经历支持。以下内容仅为虚构示例。"; b.bullets = []; });
+  }
   return {
     basic_info: {
       name: who.name,

@@ -97,10 +97,11 @@ describe("ruleSuggestion：本地规则引擎兜底（失败可降级）", () =>
     expect(out.warnings).toHaveLength(1);
   });
 
-  it("shorten 将超长句截断到 40 字内", () => {
+  it("shorten 保留长句中的事实并提示拆分", () => {
     const long = "主导交易中台前端重构，将老旧的 jQuery 单体应用逐步迁移至 React 与 TypeScript 技术栈，并同步建立了完整的组件规范";
     const out = ruleSuggestion("shorten", mkBlock({ bullets: [long] }), []);
-    expect(out.suggested_block.bullets[0].length).toBeLessThanOrEqual(42);
+    expect(out.suggested_block.bullets[0]).toBe(long);
+    expect(out.warnings[0]).toContain("拆分");
   });
 
   it("jd_match 标记已命中关键词，并警告未命中项（不强行添加）", () => {

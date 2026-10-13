@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TouchstoneCV">
+  <!-- TouchstoneCV 品牌标识 v2 · 「上扬擦痕」
+       结构：光谱渐变底（靛蓝→紫罗兰，沿用 v1.4 的 ind 家族）
+             + 一道左下→右上加速的白色擦痕（试金石划痕）
+             + 一粒金色星屑（试金）
+       用法：App 图标 / 官网主视觉 / OG 图。浅色 UI 上直接整块使用。 -->
+  <defs>
+    <linearGradient id="tscv-bg" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="0.5" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#tscv-bg)"/>
+  <path d="M14 44 Q31.6 32.6 45.5 17.5 Q34.6 35.6 20 50 Z" fill="#FFFFFF"/>
+  <path d="M23.7 51.7 Q37 46 47.1 37.1 Q39.3 48.3 28.3 56.3 Z" fill="#FFFFFF" opacity="0.45"/>
+  <circle cx="51" cy="13.1" r="2.9" fill="#F5B33F"/>
+</svg>

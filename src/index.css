@@ -272,6 +272,8 @@ body {
   }
   /* 模块标题不落在页尾（标题与内容不分离） */
   .resume-sheet h2 { break-after: avoid; }
+  .resume-print-page { break-after: page; }
+  .resume-print-page:last-child { break-after: auto; }
 }
 
 /* ---------- AI 光谱三态（v1.4 落地：看到光谱 = AI 在工作） ----------
