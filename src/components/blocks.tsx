@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { AIAction, Block, BulletStyleKey, Resume, Section } from "../types";
 import { ACTION_LABELS, BULLET_CAPABLE_SECTIONS, BULLET_STYLE_OPTIONS, SECTION_LABELS } from "../types";
 import { cx, fileToDataUrl, prepEditorHtml, resolveBulletStyle, stripHtml } from "../lib/utils";
-import { useApp } from "../lib/store";
+import { useApp, useAppSlice } from "../lib/store";
 import { IconArrowRight, IconCheck, IconChevronDown, IconChevronUp, IconEye, IconEyeOff, IconPlus, IconSpark, IconTrash, IconUpload, IconX } from "./icons";
 import { Confirm } from "./ui";
 
@@ -458,7 +458,7 @@ export function BlockCard({
   bulletStyle: BulletStyleKey;
   onBulletStyleChange: (v: BulletStyleKey) => void;
 }) {
-  const { patchBlock, deleteBlock, moveBlock } = useApp();
+  const { patchBlock, deleteBlock, moveBlock } = useAppSlice("patchBlock", "deleteBlock", "moveBlock");
   const [open, setOpen] = useState(true);
   const [confirmDel, setConfirmDel] = useState(false);
   const jd = useApp((s) => s.jds[resume.id]);
@@ -466,15 +466,15 @@ export function BlockCard({
   const preview = block.title || stripHtml(block.description).slice(0, 28) || stripHtml(block.bullets[0] ?? "").slice(0, 28) || "（空白条目）";
 
   return (
-    <div className={cx("group rounded-lg border bg-white/70 transition-all duration-200", open ? "border-ink-200 shadow-sm shadow-ink-950/5" : "border-ink-100 hover:border-ink-200")}>
-      <div className="flex cursor-pointer items-center gap-2 px-3 py-2" onClick={() => setOpen((v) => !v)}>
+    <div data-block-id={block.block_id} className={cx("group rounded-lg border bg-white/70 transition-all duration-200", open ? "border-ink-200 shadow-sm shadow-ink-950/5" : "border-ink-100 hover:border-ink-200")}>
+      <div className="flex flex-wrap cursor-pointer items-center gap-2 px-3 py-2" onClick={() => setOpen((v) => !v)}>
         <button className="tool-btn h-6 w-6" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }} aria-label={open ? "折叠" : "展开"}>
           {open ? <IconChevronDown size={14} /> : <IconChevronUp size={14} className="rotate-180" />}
         </button>
         <span className="chip shrink-0 bg-paper-200 font-mono text-ink-500">{TYPE_LABEL[block.type]}</span>
         <span className={cx("min-w-0 flex-1 truncate text-[13px]", block.title ? "font-medium text-ink-800" : "text-ink-300")}>{preview}</span>
         {block.start_date && <span className="shrink-0 font-mono text-[11px] text-ink-300">{block.start_date}{block.end_date ? ` – ${block.end_date}` : ""}</span>}
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100" onClick={(e) => e.stopPropagation()}>
+        <div className="flex w-full flex-wrap shrink-0 items-center justify-end gap-1 opacity-100 transition-opacity duration-150 xl:w-auto xl:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" onClick={(e) => e.stopPropagation()}>
           {/* 内联 AI 工具条：光谱胶囊条（看到光谱 = AI）；润色/量化/JD 对齐一步直达 */}
           <span className="ai-ring mr-0.5 flex items-center gap-0.5 rounded-full p-0.5">
             <AIActionMenu hasJD={!!jd} onAction={(a) => onRequestAI(section.section_id, block.block_id, a)} />
@@ -650,7 +650,7 @@ export function SectionCard({
   onRequestAI: (sectionId: string, blockId: string, action: AIAction) => void;
   dragHandle?: ReactNode;
 }) {
-  const { addBlock, toggleSection, deleteSection, renameSection, setSectionBulletStyle } = useApp();
+  const { addBlock, toggleSection, deleteSection, renameSection, setSectionBulletStyle } = useAppSlice("addBlock", "toggleSection", "deleteSection", "renameSection", "setSectionBulletStyle");
   const [confirmDel, setConfirmDel] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const visibleBlocks = section.blocks;
@@ -798,7 +798,7 @@ function ImageUploadField({
 }
 
 function BasicInfoEditor({ resume }: { resume: Resume }) {
-  const { patchBasic, setAvatar, setSchoolBadge, toast } = useApp();
+  const { patchBasic, setAvatar, setSchoolBadge, toast } = useAppSlice("patchBasic", "setAvatar", "setSchoolBadge", "toast");
   const b = resume.data.basic_info;
   const fields: Array<{ key: "name" | "title" | "email" | "phone" | "location" | "website"; label: string; ph: string }> = [
     { key: "name", label: "姓名", ph: "张三" },

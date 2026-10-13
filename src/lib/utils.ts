@@ -125,15 +125,37 @@ export function diffLines(a: string[], b: string[]): DiffOp[] {
 /** 将简历内容压平为纯文本，用于 JD 匹配 */
 export function resumeToText(data: {
   basic_info: { name: string; title: string };
-  sections: Array<{ title: string; blocks: Array<{ title: string; subtitle: string; description: string; bullets: string[]; skills: string[] }> }>;
+  sections: Array<{ title: string; type?: string; visible?: boolean; blocks: Array<{ title: string; subtitle: string; description: string; bullets: string[]; skills: string[]; visible?: boolean }> }>;
 }): string {
-  const parts: string[] = [data.basic_info.name, data.basic_info.title];
+  const parts: string[] = data.sections.find((s) => s.type === "basic_info")?.visible === false ? [] : [data.basic_info.name, data.basic_info.title];
   for (const s of data.sections) {
+    if (s.visible === false) continue;
     for (const b of s.blocks) {
+      if (b.visible === false) continue;
       parts.push(b.title, b.subtitle, stripHtml(b.description), ...b.bullets.map(stripHtml), ...b.skills);
     }
   }
   return parts.filter(Boolean).join("\n").toLowerCase();
+}
+
+const TERM_ALIASES: Record<string, string[]> = {
+  "node.js": ["node.js", "nodejs"], "nodejs": ["node.js", "nodejs"],
+  "next.js": ["next.js", "nextjs"], "nextjs": ["next.js", "nextjs"],
+  "go": ["go", "golang"], "golang": ["go", "golang"],
+  "postgres": ["postgres", "postgresql"], "postgresql": ["postgres", "postgresql"],
+  "k8s": ["k8s", "kubernetes"], "kubernetes": ["k8s", "kubernetes"],
+};
+
+/** Chinese phrases may be embedded in a sentence; Latin skills require token boundaries. */
+export function containsTerm(text: string, term: string): boolean {
+  const lower = text.toLowerCase();
+  const needle = term.toLowerCase().trim();
+  if (!needle) return false;
+  return (TERM_ALIASES[needle] ?? [needle]).some((alias) => {
+    if (/[\u4e00-\u9fff]/.test(alias)) return lower.includes(alias);
+    const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^a-z0-9_+#])${escaped}($|[^a-z0-9_+#])`, "i").test(lower);
+  });
 }
 
 export function sleep(ms: number) {

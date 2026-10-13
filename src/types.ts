@@ -70,7 +70,7 @@ export interface Section {
 export interface ResumeData {
   basic_info: BasicInfo;
   sections: Section[]; // 渲染按 order 升序，再过滤 visible=false
-  metadata: { source: SourceKind; source_name?: string; created_at: string };
+  metadata: { source: SourceKind; source_name?: string; created_at: string; source_text?: string; reviewed_at?: string };
   /** 个人头像（base64 或外链），仅部分模板展示 */
   avatar_url?: string;
   /** 学校/机构徽标（base64 或外链），仅部分模板展示 */
@@ -117,7 +117,50 @@ export interface Resume {
   };
   created_at: string;
   updated_at: string;
+  locale?: "zh" | "en";
+  audience?: "student" | "experienced" | "career_change";
+  target?: { company: string; job_title: string; source_resume_id?: string };
 }
+
+export interface ResumeSnapshot {
+  id: string;
+  resume_id: string;
+  label: string;
+  kind: "manual" | "export";
+  created_at: string;
+  resume: Resume;
+  jd?: JD;
+}
+
+export type ApplicationStatus = "saved" | "applied" | "interview" | "offer" | "rejected";
+export interface Application {
+  id: string;
+  resume_id: string;
+  snapshot_id?: string;
+  company: string;
+  role: string;
+  url: string;
+  status: ApplicationStatus;
+  notes: string;
+  applied_at: string;
+  follow_up_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CoverLetter {
+  resume_id: string;
+  company: string;
+  job_title: string;
+  locale: "zh" | "en";
+  body: string;
+  updated_at: string;
+}
+
+export const EN_SECTION_LABELS: Record<SectionType, string> = {
+  basic_info: "Contact", summary: "Summary", work_experience: "Experience", project_experience: "Projects",
+  education: "Education", skills: "Skills", certifications: "Certifications & Awards", custom: "Additional Information",
+};
 
 /* ---------------- JD（§6 FR-06） ---------------- */
 
@@ -197,6 +240,8 @@ export interface Suggestion {
   status: SuggestionStatus;
   original: Block;
   suggested?: Block;
+  /** Exact accepted content, used to avoid undoing later manual edits. */
+  applied?: Block;
   explanation?: string;
   matched_keywords: string[];
   warnings: string[];

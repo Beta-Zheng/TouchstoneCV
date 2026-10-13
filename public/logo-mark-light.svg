@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TouchstoneCV">
+  <!-- TouchstoneCV 品牌标识 v2 · 浅底描边版
+       用法：浅色背景、签章位、打印（无渐变依赖，黑白打印机也不糊）。 -->
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="15.25" fill="#EEF0FE" stroke="#C3C8FB" stroke-width="1.5"/>
+  <path d="M14 44 Q31.6 32.6 45.5 17.5 Q34.6 35.6 20 50 Z" fill="#4F46E5"/>
+  <path d="M23.7 51.7 Q37 46 47.1 37.1 Q39.3 48.3 28.3 56.3 Z" fill="#4F46E5" opacity="0.32"/>
+  <circle cx="51" cy="13.1" r="2.9" fill="#D97706"/>
+</svg>

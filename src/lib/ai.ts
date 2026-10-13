@@ -7,6 +7,7 @@
  * ------------------------------------------------------------------ */
 import type { AIAction, Block, ModelProvider, PrivacyLike, RouteStrategy } from "./ai-types";
 import { ACTION_LABELS } from "../types";
+import { containsTerm } from "./utils";
 
 export interface AISuggestionOutput {
   suggested_block: Block;
@@ -41,38 +42,49 @@ const ACTION_INSTRUCTION: Record<AIAction, string> = {
 
 /* ---------------- Provider ---------------- */
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+export class ProviderError extends Error {
+  constructor(public status: number) { super(`模型服务返回 HTTP ${status}，请检查服务配置与鉴权`); }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<any> {
   const ctrl = new AbortController();
+  const abort = () => ctrl.abort();
+  if (init.signal?.aborted) ctrl.abort();
+  init.signal?.addEventListener("abort", abort, { once: true });
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...init, signal: ctrl.signal });
+    const res = await fetch(url, { ...init, signal: ctrl.signal });
+    if (!res.ok) throw new ProviderError(res.status);
+    // Keep the timeout active while the response body is being received.
+    return await res.json();
   } finally {
     clearTimeout(t);
+    init.signal?.removeEventListener("abort", abort);
   }
 }
 
-async function chatOllama(p: ModelProvider, messages: Array<{ role: string; content: string }>): Promise<string> {
+async function chatOllama(p: ModelProvider, messages: Array<{ role: string; content: string }>, signal?: AbortSignal): Promise<string> {
   const base = (p.base_url || "http://localhost:11434").replace(/\/$/, "");
   const res = await fetchWithTimeout(
     `${base}/api/chat`,
     {
       method: "POST",
+      signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: p.model_name, messages, stream: false, format: "json", options: { temperature: p.temperature } }),
     },
     p.timeout_ms
   );
-  if (!res.ok) throw new Error(`Ollama 返回 ${res.status}：${(await res.text()).slice(0, 120)}`);
-  const json = await res.json();
-  return json?.message?.content ?? "";
+  return res?.message?.content ?? "";
 }
 
-async function chatOpenAI(p: ModelProvider, messages: Array<{ role: string; content: string }>): Promise<string> {
+async function chatOpenAI(p: ModelProvider, messages: Array<{ role: string; content: string }>, signal?: AbortSignal): Promise<string> {
   const base = (p.base_url || "https://api.openai.com/v1").replace(/\/$/, "");
   const res = await fetchWithTimeout(
     `${base}/chat/completions`,
     {
       method: "POST",
+      signal,
       headers: { "Content-Type": "application/json", ...(p.api_key ? { Authorization: `Bearer ${p.api_key}` } : {}) },
       body: JSON.stringify({
         model: p.model_name,
@@ -84,13 +96,11 @@ async function chatOpenAI(p: ModelProvider, messages: Array<{ role: string; cont
     },
     p.timeout_ms
   );
-  if (!res.ok) throw new Error(`模型服务返回 ${res.status}：${(await res.text()).slice(0, 120)}`);
-  const json = await res.json();
-  return json?.choices?.[0]?.message?.content ?? "";
+  return res?.choices?.[0]?.message?.content ?? "";
 }
 
-export function chat(p: ModelProvider, messages: Array<{ role: string; content: string }>): Promise<string> {
-  return p.protocol === "ollama" ? chatOllama(p, messages) : chatOpenAI(p, messages);
+export function chat(p: ModelProvider, messages: Array<{ role: string; content: string }>, signal?: AbortSignal): Promise<string> {
+  return p.protocol === "ollama" ? chatOllama(p, messages, signal) : chatOpenAI(p, messages, signal);
 }
 
 /* ---------------- 输出校验（§15.1） ---------------- */
@@ -106,7 +116,7 @@ export function parseAIOutput(raw: string, original: Block): AISuggestionOutput 
   } catch {
     throw new Error("JSON 解析失败：模型输出不是合法 JSON");
   }
-  if (typeof parsed.suggested_block !== "object" || parsed.suggested_block === null) throw new Error("缺少 suggested_block 字段");
+  if (typeof parsed.suggested_block !== "object" || parsed.suggested_block === null || Array.isArray(parsed.suggested_block)) throw new Error("缺少 suggested_block 字段");
   if (typeof parsed.explanation !== "string") throw new Error("缺少 explanation 字段");
   const sb = parsed.suggested_block as Partial<Block>;
   const merged: Block = {
@@ -144,8 +154,7 @@ export function selectProvider(models: ModelProvider[], privacy: PrivacyLike): P
   if (privacy.route === "local_only") return { kind: "rules" };
   if (!externals.length) return { kind: "rules" };
   if (!privacy.allowExternal) return { kind: "rules" };
-  if (privacy.route === "ask_before_external") return { kind: "confirm_external", provider: externals[0] };
-  return { kind: "provider", provider: externals[0] };
+  return { kind: "confirm_external", provider: externals[0] };
 }
 
 /* ---------------- 生成建议（含一次重试） ---------------- */
@@ -155,7 +164,8 @@ export async function generateWithLLM(
   action: AIAction,
   block: Block,
   resumeSummary: string,
-  jdJson: string | null
+  jdJson: string | null,
+  signal?: AbortSignal
 ): Promise<AISuggestionOutput> {
   const userPrompt = [
     ACTION_INSTRUCTION[action],
@@ -175,17 +185,14 @@ export async function generateWithLLM(
     { role: "user", content: userPrompt },
   ];
 
-  const tryOnce = async (extra?: string) => {
-    const msgs = extra ? [...messages, { role: "user", content: extra }] : messages;
-    const raw = await chat(provider, msgs);
-    return parseAIOutput(raw, block);
-  };
-
+  const raw = await chat(provider, messages, signal);
   try {
-    return await tryOnce();
+    return parseAIOutput(raw, block);
   } catch (firstErr) {
+    // Retry only output validation. Network / authentication failures retain their cause.
+    const retry = await chat(provider, [...messages, { role: "user", content: "上一次输出不是合法 JSON。请只输出符合格式的 JSON 对象本身，不要任何前后缀。" }], signal);
     try {
-      return await tryOnce("上一次输出不是合法 JSON。请只输出符合格式的 JSON 对象本身，不要任何前后缀。");
+      return parseAIOutput(retry, block);
     } catch {
       throw new Error(`AI 输出校验失败（已重试一次）：${firstErr instanceof Error ? firstErr.message : "未知错误"}`);
     }
@@ -195,8 +202,8 @@ export async function generateWithLLM(
 export function buildResumeSummary(data: import("../types").ResumeData): string {
   const name = data.basic_info.name || "候选人";
   const skills = data.sections
-    .filter((s) => s.type === "skills")
-    .flatMap((s) => s.blocks.flatMap((b) => b.skills))
+    .filter((s) => s.visible && s.type === "skills")
+    .flatMap((s) => s.blocks.filter((b) => b.visible).flatMap((b) => b.skills))
     .slice(0, 16)
     .join("、");
   return `姓名：${name}。技能：${skills || "未填写"}。`;
@@ -206,15 +213,13 @@ export function buildResumeSummary(data: import("../types").ResumeData): string 
 
 const VERB_MAP: Array<[RegExp, string]> = [
   [/^我/, ""],
-  [/^负责了?/, "主导"],
-  [/^参与了?/, "协同推进"],
-  [/^协助了?/, "配合"],
+  [/^负责了/, "负责"],
+  [/^参与了/, "参与"],
+  [/^协助了/, "协助"],
   [/^做了/, "完成"],
-  [/^帮助/, "推动"],
-  [/^搞了?/, "搭建"],
 ];
 
-const FILLER = ["非常", "十分", "比较", "大概", "左右", "基本上", "的相关", "一些", "很多"];
+const FILLER = ["非常", "十分", "的相关"];
 
 function polishBullet(b: string): string {
   let out = b.trim();
@@ -237,14 +242,14 @@ export function ruleSuggestion(action: AIAction, block: Block, jdKeywords: strin
   switch (action) {
     case "polish":
       out.suggested_block.bullets = bullets.map(polishBullet);
-      out.explanation = "规则引擎：去除冗余修饰词与弱势动词，统一为结果导向表述（未连接模型时的本地兜底）。";
+      out.explanation = "规则引擎：精简修饰词与句式，保留职责、估算范围与数字（未连接模型时的本地兜底）。";
       break;
     case "rewrite":
       // 规则引擎无法真正重写语义（禁止编造事实），与 polish 的差异在于：
-      // 强制用强动词开头，并对缺少成果数据的 bullet 给出补充提示
+      // 保留职责强度，并对缺少成果数据的 bullet 给出补充提示
       out.suggested_block.bullets = bullets.map((b) => polishBullet(b));
       out.suggested_block.description = block.description;
-      out.explanation = "规则引擎：按「强动词开头 + 内容 + 成果」梳理句式（不新增任何事实）；无模型时不编造数据。";
+      out.explanation = "规则引擎：精简句式，提示补充成果，保留原有职责与事实。";
       out.warnings = bullets
         .filter((b) => !/\d/.test(b) && !/(成果|提升|降低|缩短|减少|增长|覆盖|达成|优化)/.test(b))
         .map((b) => `「${b.slice(0, 18)}…」建议补充：动作带来的成果数据（比例 / 规模 / 耗时）`);
@@ -255,13 +260,9 @@ export function ruleSuggestion(action: AIAction, block: Block, jdKeywords: strin
       if (!out.warnings.length) out.warnings = ["所有描述均已包含数据，量化程度良好"];
       break;
     case "shorten":
-      out.suggested_block.bullets = bullets.map((b) => {
-        if (b.length <= 40) return b;
-        const cut = b.slice(0, 40);
-        const at = Math.max(cut.lastIndexOf("，"), cut.lastIndexOf("、"), cut.lastIndexOf(","));
-        return (at > 20 ? cut.slice(0, at) : cut).replace(/[，、,]+$/, "") + "…";
-      });
-      out.explanation = "规则引擎：超长句在分句处截断至 40 字内，结尾以省略号提示可再精简。";
+      out.suggested_block.bullets = bullets.map(polishBullet);
+      out.warnings = bullets.filter((b) => b.length > 40).map((b) => `「${b.slice(0, 18)}…」较长，建议拆分动作与成果；已保留完整内容，避免截断事实。`);
+      out.explanation = "规则引擎：精简冗词，长句提供拆分建议，保留完整事实与成果。";
       break;
     case "expand":
       out.explanation = "规则引擎：按「背景 / 方案 / 结果」给出扩写提示；具体事实需由你补充，避免编造。";
@@ -270,12 +271,12 @@ export function ruleSuggestion(action: AIAction, block: Block, jdKeywords: strin
       break;
     case "jd_match": {
       const text = [block.title, block.subtitle, block.description, ...bullets, ...block.skills].join(" ").toLowerCase();
-      const hit = jdKeywords.filter((k) => text.includes(k.toLowerCase()));
+      const hit = jdKeywords.filter((k) => containsTerm(text, k));
       out.matched_keywords = hit;
       out.explanation = hit.length
         ? `规则引擎：该模块已覆盖 JD 关键词 ${hit.slice(0, 6).join("、")}，建议将其放在 bullets 靠前位置。`
         : "规则引擎：该模块未命中 JD 关键词，建议在真实经历范围内调整措辞。";
-      out.warnings = jdKeywords.filter((k) => !text.includes(k.toLowerCase())).slice(0, 5).map((k) => `JD 关键词「${k}」未在本模块出现，勿强行添加不真实的经验`);
+      out.warnings = jdKeywords.filter((k) => !containsTerm(text, k)).slice(0, 5).map((k) => `JD 关键词「${k}」未在本模块出现，勿强行添加不真实的经验`);
       break;
     }
     case "ats_optimize":
@@ -296,9 +297,7 @@ export async function testProvider(p: ModelProvider): Promise<{ ok: boolean; lat
     if (p.protocol === "ollama") {
       const base = (p.base_url || "http://localhost:11434").replace(/\/$/, "");
       const res = await fetchWithTimeout(`${base}/api/tags`, { method: "GET" }, p.timeout_ms);
-      if (!res.ok) return { ok: false, latency: 0, message: `连接失败（HTTP ${res.status}）`, json: false };
-      const json = await res.json();
-      const models: string[] = (json?.models || []).map((m: { name: string }) => m.name);
+      const models: string[] = (res?.models || []).map((m: { name: string }) => m.name);
       const hasModel = models.some((m) => m.startsWith(p.model_name));
       return {
         ok: true,
@@ -309,7 +308,6 @@ export async function testProvider(p: ModelProvider): Promise<{ ok: boolean; lat
     }
     const base = (p.base_url || "https://api.openai.com/v1").replace(/\/$/, "");
     const res = await fetchWithTimeout(`${base}/models`, { method: "GET", headers: p.api_key ? { Authorization: `Bearer ${p.api_key}` } : {} }, p.timeout_ms);
-    if (!res.ok) return { ok: false, latency: 0, message: `连接失败（HTTP ${res.status}），请检查 Base URL 与 API Key`, json: false };
     return { ok: true, latency: Math.round(performance.now() - t0), message: "连接成功，鉴权通过", json: true };
   } catch (e) {
     return { ok: false, latency: 0, message: e instanceof DOMException && e.name === "AbortError" ? `连接超时（>${p.timeout_ms / 1000}s），请确认服务已启动` : `连接失败：${e instanceof Error ? e.message : "网络错误"}`, json: false };

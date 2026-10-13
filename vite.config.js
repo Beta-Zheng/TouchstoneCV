@@ -9,7 +9,19 @@ const basePath = process.env.VITE_BASE_PATH || "/TouchstoneCV/";
 export default defineConfig({
   // 构建产物前缀：本地 dev 用 /，GitHub Pages 用 /TouchstoneCV/（或环境变量覆盖）
   base: process.env.NODE_ENV === "production" ? basePath : "/",
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    // Supported browsers use WOFF2; omit duplicate WOFF fallback assets from local fonts.
+    {
+      name: "local-font-woff2",
+      enforce: "pre",
+      transform(code, id) {
+        if (id.includes("@fontsource/") && id.endsWith(".css")) {
+          return code.replace(/,\s*url\([^)]+\.woff\)\s*format\('woff'\)/g, "");
+        }
+      },
+    },
+    react(), tailwindcss(),
+  ],
   server: {
     host: "0.0.0.0",
     port: 3000,

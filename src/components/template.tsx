@@ -7,6 +7,7 @@
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { Block, Resume, Section, SectionType, HeaderLayoutKey, BulletStyleKey } from "../types";
 import { cx, fontStack, densityVars, isRichHtml, resolveBulletStyle, sanitizeInline, bulletPairs } from "../lib/utils";
+import { localizedResume } from "../lib/workflow";
 import { IconArrowRight, IconAward, IconBriefcase, IconCheck, IconFolderGit, IconGraduationCap, IconLayers, IconUser, IconWrench } from "./icons";
 
 function orderedVisible(data: Resume["data"]): Section[] {
@@ -181,7 +182,7 @@ function EntryBody({ block, style }: { block: Block; style: TStyle }) {
     block.title || block.subtitle || block.subtitles?.length || block.description || bullets.length > 0 || block.skills.length > 0 || (showLocation && block.location);
   if (!hasContent) return null;
   return (
-    <div className="mb-[var(--entry-gap)] break-inside-avoid">
+    <div data-resume-entry={block.block_id} className="mb-[var(--entry-gap)] break-inside-avoid">
       {(block.title || subtitleParts(block).length > 0) &&
         (headerLayout === "stack" ? (
           <p className="text-[1em] font-bold text-ink-900">
@@ -242,35 +243,8 @@ function EntryBody({ block, style }: { block: Block; style: TStyle }) {
  * 模块标题的视觉元素：图标徽章 + 羽化分隔带
  * ------------------------------------------------------------------ */
 
-/**
- * 预览弹窗对整页套了 transform: scale(zoom)，这里是缩放档位的最小值。
- * Editor.tsx 的 ZOOM_LEVELS 直接引用它，构成单一真源 —— 想加更小的档位，
- * 只能改这一个数字，且会立刻被下面的 DEV 断言拦下。
- */
-export const MIN_ZOOM = 0.85;
-
-/**
- * ATS 模板的实线下边框，2.4 px × 0.85 = 2.04 px ≥ 2 px，跨 2~3 行，
- * 相位差在阈值内。其他模板已不再依赖此约束 —— 改用 1 px + 8% 不透明度
- * 走「低对比度天然解耦相位差」的策略，详见 SectionRule。
- */
+/** ATS 模板实线宽度；预览可自适应缩放，打印保持原始尺寸。 */
 const RULE_PX_SOLID = 2.4;
-
-/**
- * 护栏：开发模式下检查 ATS 实线宽度 × 最小缩放是否 ≥ 2 px。
- * 早期版本的经验：缩放档位和线宽分散两个文件靠注释约定同步，
- * 改一边忘另一边就悄悄失效（默认 zoom 还曾写死成档位外的 0.78）。
- * 现在改任一侧，启动时立刻报警。生产构建无副作用。
- */
-if (import.meta.env.DEV) {
-  const scaled = RULE_PX_SOLID * MIN_ZOOM;
-  if (scaled < 2) {
-    console.warn(
-      `[template] RULE_PX_SOLID=${RULE_PX_SOLID}px × MIN_ZOOM=${MIN_ZOOM} = ${scaled.toFixed(2)}px < 2px。` +
-        `预览缩放下 ATS 分隔线会因光栅化相位差呈现粗细不一，请调大线宽或调大 MIN_ZOOM。`
-    );
-  }
-}
 
 /**
  * 模块标题右侧的分隔带。上一版是「3px 高、上下硬边、横向渐隐」的色块，
@@ -354,7 +328,7 @@ function SectionBlock({ section, style }: { section: Section; style: TStyle }) {
   // 模块级要点样式优先，未设置时继承全局默认
   const secStyle: TStyle = { ...style, bulletStyle: resolveBulletStyle(section.bullet_style, style.bulletStyle) };
   return (
-    <section className="mb-[var(--sec-gap)]">
+    <section data-resume-section={section.section_id} className="mb-[var(--sec-gap)]">
       <h2
         className={cx("mb-[var(--head-gap)] text-[1.12em] font-bold", !isATS && "flex items-center gap-[0.5em]")}
         style={
@@ -381,14 +355,14 @@ function AcademicSectionBlock({ section, color, headerLayout, bulletStyle }: { s
   // 模块级要点样式优先，未设置时继承全局默认
   const bs = resolveBulletStyle(section.bullet_style, bulletStyle);
   return (
-    <section className="mb-[var(--sec-gap)]">
+    <section data-resume-section={section.section_id} className="mb-[var(--sec-gap)]">
       <h2 className="mb-[var(--head-gap)] flex items-center gap-[0.5em] text-[1.12em] font-bold" style={{ color, letterSpacing: "0.02em", breakAfter: "avoid" }}>
         <SectionBadge section={section} color={color} shape="circle" />
         {section.title}
         <SectionRule color={color} />
       </h2>
       {blocks.map((b) => (
-        <div key={b.block_id} className="mb-[var(--entry-gap)] break-inside-avoid">
+        <div key={b.block_id} data-resume-entry={b.block_id} className="mb-[var(--entry-gap)] break-inside-avoid">
           {(b.title || subtitleParts(b).length > 0) &&
             (headerLayout === "stack" ? (
               <p className="text-[1em] font-bold text-ink-900">
@@ -588,10 +562,11 @@ export function ResumeSheet({ resume, forPrint }: { resume: Resume; forPrint?: b
 
 /** A4 尺寸容器：794 x 1123 px @96dpi */
 export function A4Sheet({ resume, forPrint }: { resume: Resume; forPrint?: boolean }) {
+  const prepared = localizedResume(resume);
   return (
-    <div className="resume-sheet-wrap bg-white" style={{ width: 794, minHeight: 1123, ...densityVars(resume.theme.density) }}>
-      <div style={{ minHeight: 1123, padding: "var(--page-pad-y) var(--page-pad-x)" }}>
-        <ResumeSheet resume={resume} forPrint={forPrint} />
+    <div className="resume-sheet-wrap bg-white" style={{ width: forPrint ? "210mm" : 794, minHeight: forPrint ? "297mm" : 1123, ...densityVars(resume.theme.density) }}>
+      <div style={{ minHeight: forPrint ? "297mm" : 1123, padding: "var(--page-pad-y) var(--page-pad-x)" }}>
+        <ResumeSheet resume={prepared} forPrint={forPrint} />
       </div>
     </div>
   );

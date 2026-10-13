@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TouchstoneCV">
+  <!-- TouchstoneCV 品牌标识 v2 · 单色反白版
+       用法：深色 UI、单色印刷、水印。 -->
+  <rect width="64" height="64" rx="16" fill="#1B1C1F"/>
+  <path d="M14 44 Q31.6 32.6 45.5 17.5 Q34.6 35.6 20 50 Z" fill="#FFFFFF"/>
+  <path d="M23.7 51.7 Q37 46 47.1 37.1 Q39.3 48.3 28.3 56.3 Z" fill="#FFFFFF" opacity="0.4"/>
+  <circle cx="51" cy="13.1" r="2.9" fill="#FFFFFF"/>
+</svg>
