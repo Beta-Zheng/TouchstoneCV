@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { downloadText, fmtDateCompact, nowISO } from "../lib/utils";
 import { useAppSlice } from "../lib/store";
 import {
@@ -45,6 +45,20 @@ export default function Settings() {
   } | null>(null);
   const [restoreMode, setRestoreMode] = useState<"merge" | "replace">("merge");
   const [singleId, setSingleId] = useState("");
+  const [storageEstimate, setStorageEstimate] =
+    useState<StorageEstimate | null>(null);
+  useEffect(() => {
+    let active = true;
+    void navigator.storage
+      ?.estimate()
+      .then((value) => {
+        if (active) setStorageEstimate(value);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [app.saveStatus, resumes.length, app.snapshots.length]);
   const [lastBackup, setLastBackup] = useState(() => {
     try {
       return localStorage.getItem("resume-last-backup");
@@ -158,17 +172,30 @@ export default function Settings() {
             ))}
           </div>
           <p className="mt-3 flex items-center justify-between rounded-lg bg-paper-100 px-3 py-2 font-mono text-[11px] text-ink-500">
-            <span>浏览器 localStorage</span>
+            <span>文档展开大小（含快照重复内容）</span>
             <span className="font-bold text-ink-800">{storageKB} KB</span>
           </p>
           <pre className="mt-3 overflow-x-auto rounded-xl bg-ink-900 p-3.5 font-mono text-[10.5px] leading-relaxed text-paper-200">
-            {`ai-resume-workbench-v1
-├── 简历、JD 与 AI 建议
-├── 模型配置与本机 API Key
-└── 隐私设置
+            {`本机 IndexedDB
+├── 简历与快照：共享未改动条目
+├── 图片与导入原文：独立去重存储
+└── 模型配置、投递记录与隐私设置
 
-备份文件不包含 API Key`}
+旧 localStorage 数据校验并迁移成功后才移除。
+备份不含 API Key；本机密钥未加密。`}
           </pre>
+          {storageEstimate && (
+            <p className="mt-2 text-[11px] text-ink-500">
+              站点实际占用约{" "}
+              {((storageEstimate.usage ?? 0) / 1024 / 1024).toFixed(1)}{" "}
+              MB，浏览器报告配额约{" "}
+              {((storageEstimate.quota ?? 0) / 1024 / 1024).toFixed(0)}{" "}
+              MB（含本网站缓存，配额不保证可全部使用）。
+            </p>
+          )}
+          <p className="mt-2 text-[11px] text-ink-500">
+            浏览器清理站点数据仍会删除简历，请定期备份。多个窗口同时编辑时会拒绝覆盖旧版本；遇到保存失败，请先备份当前内容再刷新。
+          </p>
         </section>
 
         {/* 隐私（v1.4：深靛底替代纯黑，属靛蓝家族不违反墨色减法） */}

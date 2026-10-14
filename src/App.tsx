@@ -15,6 +15,8 @@ import CommandPalette, {
 } from "./components/command-palette";
 import Logo from "./components/logo";
 import Home from "./pages/Home";
+import UsageGuide from "./components/usage-guide";
+import { openUsageGuide } from "./lib/onboarding";
 import { hashView } from "./lib/navigation";
 import {
   IconAlert,
@@ -24,6 +26,7 @@ import {
   IconMenu,
   IconSearch,
   IconShield,
+  IconBookOpen,
 } from "./components/icons";
 
 const Editor = lazy(() => import("./pages/Editor"));
@@ -90,17 +93,20 @@ function NavItem({
   onClick,
   icon,
   label,
+  trailing,
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  trailing?: ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cx(
-        "group relative flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150",
+        "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
         active
           ? "bg-brand-50 text-brand-700"
           : "text-ink-500 hover:bg-subtle hover:text-ink-900"
@@ -111,13 +117,14 @@ function NavItem({
       )}
       <span
         className={cx(
-          "transition-colors",
+          "flex h-5 w-5 shrink-0 items-center justify-center transition-colors",
           active ? "text-brand-600" : "text-ink-400 group-hover:text-brand-600"
         )}
       >
         {icon}
       </span>
-      {label}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {trailing}
     </button>
   );
 }
@@ -131,7 +138,16 @@ export default function App() {
 }
 
 function AppShell() {
+  const [hydrated, setHydrated] = useState(useApp.persist.hasHydrated());
   useEffect(() => {
+    const unsubscribe = useApp.persist.onFinishHydration(() =>
+      setHydrated(true)
+    );
+    setHydrated(useApp.persist.hasHydrated());
+    return unsubscribe;
+  }, []);
+  useEffect(() => {
+    if (!hydrated) return;
     const sync = () => {
       const view = hashView(window.location.hash);
       if (!view) return;
@@ -147,7 +163,7 @@ function AppShell() {
     sync();
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
-  }, []);
+  }, [hydrated]);
   const view = useApp((s) => s.view);
   const go = useApp((s) => s.go);
   const privacy = useApp((s) => s.privacy);
@@ -188,6 +204,12 @@ function AppShell() {
   ];
   const activeKey = view.name === "editor" ? "home" : view.name;
 
+  if (!hydrated)
+    return (
+      <p role="status" className="p-6">
+        正在读取本机简历与版本…
+      </p>
+    );
   return (
     <div id="app-root" className="flex h-screen overflow-hidden bg-page">
       {/* 移动端顶栏（<md）：汉堡按钮 + 品牌 */}
@@ -215,26 +237,26 @@ function AppShell() {
       {/* 侧边导航（v1.4 浅色化；<md 转为固定抽屉，滑入滑出） */}
       <nav
         className={cx(
-          "flex w-[232px] shrink-0 flex-col border-r border-line bg-surface",
+          "flex w-[232px] shrink-0 flex-col overflow-y-auto border-r border-line bg-surface",
           "fixed inset-y-0 left-0 z-50 transition-transform duration-200 md:static md:z-auto md:translate-x-0 md:transition-none",
           drawerOpen
             ? "translate-x-0 shadow-2xl shadow-ink-950/25"
             : "-translate-x-full"
         )}
       >
-        <div className="flex items-center gap-2.5 px-4 pb-5 pt-5">
-          <Logo size={44} />
+        <div className="flex shrink-0 items-center gap-3 px-5 py-6">
+          <Logo size={38} />
           <div>
-            <p className="font-display text-[16px] font-black leading-none text-ink-900">
+            <p className="text-[16px] font-bold leading-5 tracking-tight text-ink-900">
               TouchstoneCV
             </p>
-            <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-ink-400">
-              resume workbench
+            <p className="mt-0.5 text-[11px] leading-4 text-ink-400">
+              简历工作台
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 px-2.5">
+        <div className="flex shrink-0 flex-col gap-1 px-3">
           {nav.map((n) => (
             <NavItem
               key={n.key}
@@ -249,21 +271,37 @@ function AppShell() {
           ))}
         </div>
 
-        {/* ⌘K 命令面板常驻入口（产品无顶栏，搜索条收进侧栏） */}
-        <div className="mt-2 px-2.5">
-          <button
-            onClick={openCommandPalette}
-            className="flex w-full items-center gap-2 rounded-lg border border-line bg-paper-25 px-3 py-2 text-[12.5px] text-ink-400 transition hover:border-brand-300 hover:text-brand-700"
-          >
-            <IconSearch size={13} />
-            <span className="flex-1 text-left">搜索命令</span>
-            <kbd className="rounded border border-ink-200 bg-paper-200 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">
-              ⌘K
-            </kbd>
-          </button>
+        <div className="mx-6 my-4 h-px shrink-0 bg-line" />
+        <div className="flex shrink-0 flex-col gap-1 px-3">
+          <NavItem
+            active={false}
+            label="搜索命令"
+            icon={<IconSearch size={16} />}
+            onClick={() => {
+              setDrawerOpen(false);
+              openCommandPalette();
+            }}
+            trailing={
+              <kbd className="hidden rounded border border-line px-1.5 py-0.5 text-[10px] font-normal leading-4 text-ink-400 md:block">
+                {typeof navigator !== "undefined" &&
+                /Mac/i.test(navigator.platform)
+                  ? "⌘ K"
+                  : "Ctrl K"}
+              </kbd>
+            }
+          />
+          <NavItem
+            active={false}
+            label="使用指南"
+            icon={<IconBookOpen size={16} />}
+            onClick={() => {
+              setDrawerOpen(false);
+              openUsageGuide();
+            }}
+          />
         </div>
 
-        <div className="mt-auto px-2.5 pb-2.5">
+        <div className="mt-auto shrink-0 px-3 pb-3 pt-6">
           <div className="rounded-xl bg-subtle px-3 py-3 ring-1 ring-line">
             <p className="flex items-center gap-1.5 text-[11px] font-bold text-ink-900">
               <IconShield
@@ -288,7 +326,7 @@ function AppShell() {
                     : "anim-pulse-dot bg-brand-500"
                 )}
               />
-              {resumeCount} resume(s) on disk
+              {resumeCount} 份本机简历
             </div>
           </div>
         </div>
@@ -329,6 +367,7 @@ function AppShell() {
 
       <ToastHost />
       <CommandPalette />
+      <UsageGuide />
     </div>
   );
 }

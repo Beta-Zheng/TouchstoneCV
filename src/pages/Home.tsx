@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Resume, ResumeData, SourceKind } from "../types";
-import { TEMPLATES } from "../types";
+import { AUDIENCE_LABELS, TEMPLATES } from "../types";
 import {
   ACCEPT_EXTS,
   MAX_FILE_SIZE,
@@ -27,16 +27,10 @@ import {
   IconLayers,
   IconPlus,
   IconShield,
-  IconTrash,
   IconUpload,
 } from "../components/icons";
 
 type CreateTab = "start" | "file" | "paste" | "samples";
-const AUDIENCES = {
-  student: "应届 / 实习",
-  experienced: "社招",
-  career_change: "转行",
-} as const;
 const SAMPLE_KINDS = {
   ai: "AI 应用工程师",
   frontend: "前端工程师",
@@ -52,9 +46,8 @@ export default function Home() {
     "applications",
     "go",
     "createResume",
-    "deleteResume",
-    "duplicateResume",
-    "setResumeOptions"
+    "archiveResume",
+    "duplicateResume"
   );
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<CreateTab>("start");
@@ -83,14 +76,18 @@ export default function Home() {
     },
     []
   );
-  const sorted = [...app.resumes].sort((a, b) =>
-    sort === "title"
-      ? a.title.localeCompare(b.title)
-      : b.updated_at.localeCompare(a.updated_at)
-  );
+  const sorted = app.resumes
+    .filter((r) => (filter === "archived" ? !!r.archived_at : !r.archived_at))
+    .sort((a, b) =>
+      sort === "title"
+        ? a.title.localeCompare(b.title)
+        : b.updated_at.localeCompare(a.updated_at)
+    );
   const list = sorted.filter(
     (r) =>
-      (filter === "all" || (filter === "master" ? !r.target : !!r.target)) &&
+      (filter === "all" ||
+        filter === "archived" ||
+        (filter === "master" ? !r.target : !!r.target)) &&
       [
         r.title,
         r.data.basic_info.name,
@@ -101,9 +98,9 @@ export default function Home() {
         .toLowerCase()
         .includes(query.toLowerCase())
   );
-  const latest = [...app.resumes].sort((a, b) =>
-    b.updated_at.localeCompare(a.updated_at)
-  )[0];
+  const latest = app.resumes
+    .filter((r) => !r.archived_at)
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
   const issues = latest ? inspectResume(latest) : [];
   const openCreate = (next: CreateTab = "start") => {
     setOpen(true);
@@ -120,8 +117,7 @@ export default function Home() {
     setError("");
   };
   const create = (data: ResumeData, title?: string) => {
-    const id = app.createResume(data, title);
-    app.setResumeOptions(id, { audience, locale });
+    const id = app.createResume(data, title, { audience, locale });
     close();
     app.go({ name: "editor", resumeId: id });
   };
@@ -192,7 +188,7 @@ export default function Home() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-widest text-brand-600">
-            Local-first Resume Workbench
+            本机简历工作台
           </p>
           <h1 className="mt-2 font-display text-[30px] font-black">
             简历工作台
@@ -273,6 +269,7 @@ export default function Home() {
               <option value="all">全部版本</option>
               <option value="master">主简历</option>
               <option value="target">岗位版本</option>
+              <option value="archived">已归档</option>
             </select>
             <select
               aria-label="排序简历"
@@ -332,6 +329,9 @@ export default function Home() {
                     <span className="chip bg-paper-100">
                       {r.target ? "岗位版本" : "主简历"}
                     </span>
+                    {r.archived_at && (
+                      <span className="chip bg-paper-100">已归档</span>
+                    )}
                     <span className="chip bg-paper-100">
                       {
                         TEMPLATES.find((t) => t.template_id === r.template_id)
@@ -342,8 +342,16 @@ export default function Home() {
                       {r.locale === "en" ? "英文版式" : "中文版式"}
                     </span>
                   </div>
+                  {r.target?.source_resume_id && (
+                    <p className="mt-2 text-[11px] text-ink-500">
+                      来源：
+                      {app.resumes.find(
+                        (source) => source.id === r.target?.source_resume_id
+                      )?.title ?? "原主简历未包含在当前备份中"}
+                    </p>
+                  )}
                   <p className="mt-3 text-[11px] text-ink-500">
-                    基础内容完整度 {completion(r)}% ·{" "}
+                    基础字段完成度 {completion(r)}% ·{" "}
                     {problems.length
                       ? `${problems.length} 项待检查`
                       : "基础检查通过"}
@@ -363,6 +371,8 @@ export default function Home() {
                   </div>
                   <p className="mt-3 text-[10px] text-ink-400">
                     {timeAgo(r.updated_at)}更新 ·{" "}
+                    {app.snapshots.filter((s) => s.resume_id === r.id).length}{" "}
+                    个保存版本 ·{" "}
                     {exp
                       ? `导出准备于${timeAgo(exp.created_at)}`
                       : "尚未生成导出快照"}
@@ -384,11 +394,17 @@ export default function Home() {
                         <IconLayers size={14} />
                       </button>
                       <button
-                        className="tool-btn text-danger-700"
-                        aria-label={`删除简历 ${r.title}`}
-                        onClick={() => setDel(r)}
+                        className="rounded px-2 py-1 text-[12px] text-ink-500 hover:bg-paper-100"
+                        aria-label={`${
+                          r.archived_at ? "取消归档" : "归档简历"
+                        } ${r.title}`}
+                        onClick={() =>
+                          r.archived_at
+                            ? app.archiveResume(r.id, false)
+                            : setDel(r)
+                        }
                       >
-                        <IconTrash size={14} />
+                        {r.archived_at ? "恢复" : "归档"}
                       </button>
                     </div>
                   </div>
@@ -448,7 +464,7 @@ export default function Home() {
                       setAudience(e.target.value as typeof audience)
                     }
                   >
-                    {Object.entries(AUDIENCES).map(([id, label]) => (
+                    {Object.entries(AUDIENCE_LABELS).map(([id, label]) => (
                       <option key={id} value={id}>
                         {label}
                       </option>
@@ -573,12 +589,15 @@ export default function Home() {
                             id as SampleKind,
                             audience
                           );
-                          create(data, `${label} · ${AUDIENCES[audience]}示例`);
+                          create(
+                            data,
+                            `${label} · ${AUDIENCE_LABELS[audience]}示例`
+                          );
                         }}
                       >
                         <p className="text-[13px] font-bold">{label}</p>
                         <p className="mt-1 text-[11px] text-ink-500">
-                          {AUDIENCES[audience]} · 示例可编辑
+                          {AUDIENCE_LABELS[audience]} · 示例可编辑
                         </p>
                       </button>
                     ))}
@@ -613,12 +632,11 @@ export default function Home() {
       </Modal>
       <Confirm
         open={!!del}
-        danger
-        title={`删除「${del?.title}」？`}
-        desc="将删除该简历及相关 JD、建议、快照、求职信和投递记录。建议先下载备份。"
-        confirmText="删除"
+        title={`归档「${del?.title}」？`}
+        desc="从日常列表隐藏，简历、岗位关联、快照和投递记录均保留。可在已归档列表恢复。"
+        confirmText="归档"
         onConfirm={() => {
-          if (del) app.deleteResume(del.id);
+          if (del) app.archiveResume(del.id, true);
           setDel(null);
         }}
         onCancel={() => setDel(null)}

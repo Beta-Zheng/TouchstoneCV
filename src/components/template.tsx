@@ -6,7 +6,7 @@
  * ------------------------------------------------------------------ */
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { Block, Resume, Section, SectionType, HeaderLayoutKey, BulletStyleKey } from "../types";
-import { cx, fontStack, densityVars, isRichHtml, resolveBulletStyle, sanitizeInline, bulletPairs } from "../lib/utils";
+import { cx, fontStack, densityVars, isRichHtml, resolveBulletStyle, sanitizeInline, bulletPairs, stripHtml } from "../lib/utils";
 import { localizedResume } from "../lib/workflow";
 import { IconArrowRight, IconAward, IconBriefcase, IconCheck, IconFolderGit, IconGraduationCap, IconLayers, IconUser, IconWrench } from "./icons";
 
@@ -435,18 +435,18 @@ function AcademicPhotoSheet({ resume, forPrint }: { resume: Resume; forPrint?: b
           )}
           <div className="min-w-0 flex-1">
             <h1 className="font-[700] leading-tight" style={{ fontSize: "2.2em", color: "#101817", letterSpacing: "-0.01em" }}>
-              {info.name || "未命名"}
+              {renderRich(info.name || "未命名")}
             </h1>
             {info.title && (
               <p className="mt-1 font-medium" style={{ color }}>
-                {info.title}
+                {renderRich(info.title)}
               </p>
             )}
             {contacts.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-y-1 text-[0.85em] text-ink-500">
                 {contacts.map((c, idx) => (
                   <span key={c} className="inline-flex items-center">
-                    <span>{c}</span>
+                    <span>{renderRich(c)}</span>
                     {idx < contacts.length - 1 && <span className="mx-3 text-ink-300" aria-hidden="true">|</span>}
                   </span>
                 ))}
@@ -495,13 +495,13 @@ export function ResumeSheet({ resume, forPrint }: { resume: Resume; forPrint?: b
     basicVisible && (info.name || info.title || contacts.length > 0) ? (
       isATS ? (
         <header className="mb-[var(--sec-gap)] text-center">
-          <h1 className="text-[2.1em] font-bold leading-tight tracking-wide">{info.name || "未命名"}</h1>
-          {info.title && <p className="mt-0.5 text-[1.05em] font-medium">{info.title}</p>}
+          <h1 className="text-[2.1em] font-bold leading-tight tracking-wide">{renderRich(info.name || "未命名")}</h1>
+          {info.title && <p className="mt-0.5 text-[1.05em] font-medium">{renderRich(info.title)}</p>}
           {contacts.length > 0 && (
             <p className="mt-2 flex flex-wrap items-center justify-center gap-y-1 text-[0.85em] text-[#333]">
               {contacts.map((c, idx) => (
                 <span key={c} className="inline-flex items-center">
-                  <span>{c}</span>
+                  <span>{renderRich(c)}</span>
                   {idx < contacts.length - 1 && <span className="mx-3 text-ink-300" aria-hidden="true">|</span>}
                 </span>
               ))}
@@ -513,11 +513,11 @@ export function ResumeSheet({ resume, forPrint }: { resume: Resume; forPrint?: b
           <div className="flex items-end justify-between gap-4">
             <div>
               <h1 className="font-[700] leading-tight" style={{ fontSize: "2.3em", color: "#101817", letterSpacing: "-0.01em" }}>
-                {info.name || "未命名"}
+                {renderRich(info.name || "未命名")}
               </h1>
               {info.title && (
                 <p className="mt-1 text-[1.1em] font-medium" style={{ color }}>
-                  {info.title}
+                  {renderRich(info.title)}
                 </p>
               )}
             </div>
@@ -527,7 +527,7 @@ export function ResumeSheet({ resume, forPrint }: { resume: Resume; forPrint?: b
               style={{ background: `linear-gradient(135deg, ${color}, ${color}bf)` }}
             >
               <span className="font-bold text-white" style={{ fontSize: "1.35em" }}>
-                {(info.name || "?").slice(0, 1)}
+                {(stripHtml(info.name).replace(/\*\*/g, "") || "?").slice(0, 1)}
               </span>
             </div>
           </div>
@@ -535,7 +535,7 @@ export function ResumeSheet({ resume, forPrint }: { resume: Resume; forPrint?: b
             <div className="mt-[var(--head-gap)] flex flex-wrap items-center gap-y-1 text-[0.85em] text-ink-500">
               {contacts.map((c, idx) => (
                 <span key={c} className="inline-flex items-center">
-                  <span>{c}</span>
+                  <span>{renderRich(c)}</span>
                   {idx < contacts.length - 1 && <span className="mx-3 text-ink-300" aria-hidden="true">|</span>}
                 </span>
               ))}

@@ -385,3 +385,25 @@ body {
   .logo:hover .ribbon { animation: none; }
   .logo:hover .spark { animation: none; }
 }
+
+/* Editing panes scroll independently on desktop; small screens keep explicit preview tabs. */
+.editor-split { display: flex; flex-direction: column; gap: 12px; }
+.editor-split .editor-preview { max-height: 75vh; overflow: auto; }
+@media (min-width: 1280px) {
+  .editor-split { display: grid; height: 100%; min-height: 0; grid-template-columns: minmax(0, var(--editor-split, 43%)) 12px minmax(0, 1fr); gap: 8px; }
+  .editor-split .editor-content, .editor-split .editor-preview { height: 100%; min-height: 0; max-height: none; overflow: auto; }
+}
+.inline-format { visibility: hidden; }
+.inline-editor:focus-within .inline-format { visibility: visible; }
+.achievement-actions { opacity: 0; }
+.achievement-row:hover .achievement-actions, .achievement-row:focus-within .achievement-actions { opacity: 1; }
+@media (hover: none) { .achievement-actions { opacity: 1; } }
+
+.editor-content .field-label { font-size: 12px; color: var(--color-ink-600); }
+
+@keyframes guide-tap {
+  0%, 100% { box-shadow: 0 0 0 2px rgb(165 180 252 / 35%); }
+  50% { box-shadow: 0 0 0 7px rgb(165 180 252 / 20%); }
+}
+.guide-action { animation: guide-tap 0.8s ease-in-out 2; }
+@media (prefers-reduced-motion: reduce) { .guide-action { animation: none; } }

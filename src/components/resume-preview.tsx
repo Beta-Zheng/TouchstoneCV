@@ -99,14 +99,17 @@ export default function ResumePreview({
     >
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-line bg-paper-50 px-3 py-2">
         <span className="text-[11px] text-ink-500">
-          {pages.length} 页 · A4 · 实时预览
+          预览 · {pages.length} 页
         </span>
         <div className="flex gap-1">
           {(["fit", 0.75, 1] as const).map((value) => (
             <Btn
               key={value}
-              variant={zoom === value ? "dark" : "ghost"}
-              className="h-6 px-2 text-[10px]"
+              variant="ghost"
+              aria-pressed={zoom === value}
+              className={`h-7 px-2 text-[11px] ${
+                zoom === value ? "bg-paper-200 font-medium text-ink-800" : ""
+              }`}
               onClick={() => setZoom(value)}
             >
               {value === "fit" ? "适应窗口" : `${value * 100}%`}

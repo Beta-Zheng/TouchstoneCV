@@ -104,6 +104,10 @@ export default function ExportDialog({
       <div className="grid max-h-[65vh] grid-cols-1 overflow-y-auto lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="border-b border-line p-4 lg:border-r">
           <h4 className="mb-2 text-[13px] font-bold">投递前检查</h4>
+          <p className="mb-3 text-[11px] text-ink-500">
+            PDF 建议使用 A4、100% 缩放、关闭页眉页脚并开启背景图形。Word
+            采用单栏内容布局，分页会随字体环境变化。
+          </p>
           {issues.length ? (
             <ul className="space-y-2">
               {issues.map((issue) => (

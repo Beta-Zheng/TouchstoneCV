@@ -4,9 +4,15 @@ import { ACTION_LABELS, TEMPLATES } from "../types";
 import { useAppSlice } from "../lib/store";
 import { diffLines, downloadText, fmtTime } from "../lib/utils";
 import { resumeText } from "../lib/export";
-import { blockHasContent, createCoverLetterDraft } from "../lib/workflow";
+import {
+  blockHasContent,
+  createCoverLetterDraft,
+  coverLetterEvidence,
+} from "../lib/workflow";
+import { selectProvider } from "../lib/ai";
 import { A4Sheet } from "./template";
 import { Btn, Confirm, Modal, ModalHeader } from "./ui";
+import SnapshotView from "./snapshot-view";
 
 export type WorkflowTool =
   | "target"
@@ -35,6 +41,8 @@ export default function WorkflowDialog({
   onAIStart: (sectionId: string, blockId: string) => void;
 }) {
   const app = useAppSlice(
+    "models",
+    "privacy",
     "jds",
     "snapshots",
     "coverLetters",
@@ -55,6 +63,7 @@ export default function WorkflowDialog({
   const [jd, setJD] = useState(app.jds[resume.id]?.raw_text ?? "");
   const [label, setLabel] = useState("");
   const [compare, setCompare] = useState<string | null>(null);
+  const [viewSnapshot, setViewSnapshot] = useState<string | null>(null);
   const [restore, setRestore] = useState<string | null>(null);
   const selectable = resume.data.sections.filter(
     (s) =>
@@ -74,9 +83,17 @@ export default function WorkflowDialog({
   const [timeFact, setTimeFact] = useState("");
   const [resultFact, setResultFact] = useState("");
   const [letter, setLetter] = useState<CoverLetter>(
-    app.coverLetters[resume.id] ?? createCoverLetterDraft(resume, company, role)
+    app.coverLetters[resume.id] ??
+      createCoverLetterDraft(resume, company, role, { jd: app.jds[resume.id] })
   );
   const [regenerate, setRegenerate] = useState(false);
+  const rules = selectProvider(app.models, app.privacy).kind === "rules";
+  const availableEvidence = coverLetterEvidence(resume, app.jds[resume.id]);
+  const [letterEvidence, setLetterEvidence] = useState(
+    availableEvidence.slice(0, 3)
+  );
+  const [motivation, setMotivation] = useState("");
+  const [contribution, setContribution] = useState("");
   const snapshots = app.snapshots.filter((s) => s.resume_id === resume.id);
   const compared = snapshots.find((s) => s.id === compare);
   const saveLetter = () => {
@@ -104,7 +121,7 @@ export default function WorkflowDialog({
         {tool === "target" && (
           <div className="flex flex-col gap-3">
             <p className="text-[12px] text-ink-500">
-              会复制当前简历，并关联来源；母版保留。岗位版本可以独立编辑。
+              会复制当前简历并关联主简历。岗位版本独立编辑，主简历更新不会自动覆盖岗位内容。
             </p>
             <label className="text-[12px]">
               公司
@@ -150,8 +167,8 @@ export default function WorkflowDialog({
         {tool === "versions" && (
           <>
             <p className="mb-3 text-[12px] text-ink-500">
-              保留最近 20
-              份快照，投递关联的快照长期保留。恢复前会自动保存当前版本。
+              保留最近 20 份近期快照，初始及投递关联快照长期保留。停止编辑 30
+              秒或离开编辑页时自动记录有变化的内容；恢复前保存当前版本。
             </p>
             <div className="mb-4 flex gap-2">
               <input
@@ -183,8 +200,24 @@ export default function WorkflowDialog({
                   <span className="text-[12px]">
                     {s.label} · {new Date(s.created_at).toLocaleDateString()}{" "}
                     {fmtTime(s.created_at)}
+                    <span className="ml-2 text-ink-400">
+                      {
+                        {
+                          initial: "初始",
+                          auto: "自动",
+                          manual: "手动",
+                          export: "导出准备",
+                        }[s.kind]
+                      }
+                    </span>
+                    {s.summary && (
+                      <span className="mt-1 block text-ink-500">
+                        {s.summary}
+                      </span>
+                    )}
                   </span>
                   <div className="flex gap-2">
+                    <Btn onClick={() => setViewSnapshot(s.id)}>查看版本</Btn>
                     <Btn onClick={() => setCompare(s.id)}>与当前比较</Btn>
                     <Btn onClick={() => setRestore(s.id)}>恢复</Btn>
                   </div>
@@ -269,8 +302,17 @@ export default function WorkflowDialog({
                 onChange={(e) => setAction(e.target.value as AIAction)}
               >
                 {Object.entries(ACTION_LABELS).map(([id, meta]) => (
-                  <option key={id} value={id}>
+                  <option
+                    key={id}
+                    value={id}
+                    disabled={
+                      rules && ["rewrite", "expand", "translate"].includes(id)
+                    }
+                  >
                     {meta.label}
+                    {rules && ["rewrite", "expand", "translate"].includes(id)
+                      ? "（需模型）"
+                      : ""}
                   </option>
                 ))}
               </select>
@@ -377,8 +419,63 @@ export default function WorkflowDialog({
         {tool === "letter" && (
           <div className="flex flex-col gap-3">
             <p className="text-[12px] text-ink-500">
-              草稿仅引用简历中的可见经历和技能，使用本地模板，不向模型发送内容。请核对后保存。
+              本地辅助草稿：按 JD
+              词项排序可见经历，由你选择证据与补充动机，再重新生成。不会自动发送。
             </p>
+            <p className="text-[11px] text-ink-500">
+              当前草稿：{letter.locale === "en" ? "英文" : "中文"}
+              。切换简历版式不会改写已保存求职信，重新生成时采用当前版式语言。
+            </p>
+            <label className="text-[12px]">
+              为何应聘这家公司（英文信请填写英文）
+              <textarea
+                aria-label="应聘动机"
+                className="field-input mt-1"
+                value={motivation}
+                onChange={(e) => setMotivation(e.target.value)}
+                placeholder="具体产品、业务或团队吸引你的原因，避免空泛赞美"
+              />
+            </label>
+            <label className="text-[12px]">
+              你能带来的贡献（只写真实能力）
+              <textarea
+                aria-label="岗位贡献"
+                className="field-input mt-1"
+                value={contribution}
+                onChange={(e) => setContribution(e.target.value)}
+                placeholder="把真实经历与当前岗位要解决的问题连接起来"
+              />
+            </label>
+            <fieldset className="max-h-40 overflow-auto rounded-lg border border-line p-2">
+              <legend className="text-[12px]">
+                选择最多三条经历证据（按 JD 相关词项排序）
+              </legend>
+              {availableEvidence.map((text, i) => (
+                <label key={i} className="mb-2 flex gap-2 text-[11px]">
+                  <input
+                    type="checkbox"
+                    checked={letterEvidence.includes(text)}
+                    disabled={
+                      !letterEvidence.includes(text) &&
+                      letterEvidence.length >= 3
+                    }
+                    onChange={(e) =>
+                      setLetterEvidence(
+                        e.target.checked
+                          ? [...letterEvidence, text]
+                          : letterEvidence.filter((x) => x !== text)
+                      )
+                    }
+                  />
+                  {text}
+                </label>
+              ))}
+            </fieldset>
+            {letter.locale === "en" && /[\u4e00-\u9fff]/.test(letter.body) && (
+              <p role="status" className="text-[12px] text-seal-700">
+                正文仍含中文经历。可先用模型翻译对应条目并确认，再生成英文求职信；切换版式不会翻译内容。
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <label className="text-[12px]">
                 公司
@@ -477,6 +574,12 @@ export default function WorkflowDialog({
           </>
         )}
       </div>
+      {viewSnapshot && app.snapshots.find((s) => s.id === viewSnapshot) && (
+        <SnapshotView
+          snapshot={app.snapshots.find((s) => s.id === viewSnapshot)!}
+          onClose={() => setViewSnapshot(null)}
+        />
+      )}
       <Confirm
         open={!!restore}
         title="恢复该快照？"
@@ -495,7 +598,14 @@ export default function WorkflowDialog({
         desc="将替换当前编辑框中的文字，已保存版本会在你再次保存时更新。"
         confirmText="重新生成"
         onConfirm={() => {
-          setLetter(createCoverLetterDraft(resume, company, role));
+          setLetter(
+            createCoverLetterDraft(resume, company, role, {
+              jd: app.jds[resume.id],
+              evidence: letterEvidence,
+              motivation,
+              contribution,
+            })
+          );
           setRegenerate(false);
         }}
         onCancel={() => setRegenerate(false)}

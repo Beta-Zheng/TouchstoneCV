@@ -42,7 +42,7 @@ describe("parseAIOutput：AI 输出 JSON 校验（PRD §15.1，禁止跳过校�
 });
 
 describe("selectProvider：隐私路由策略（外部模型默认关闭）", () => {
-  const local: ModelProvider = { ...defaultModels()[0] };
+  const local: ModelProvider = { ...defaultModels()[0], enabled: true };
   const external: ModelProvider = {
     id: "m_ext",
     name: "外部",

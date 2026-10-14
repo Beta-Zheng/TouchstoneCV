@@ -1,17 +1,19 @@
 {
-  "name": "prism-cv",
+  "name": "touchstone-cv",
   "private": true,
-  "description": "PrismCV — local-first AI resume workbench · 本地优先的 AI 简历工作台",
+  "description": "TouchstoneCV — local-first AI resume workbench · 本地优先的 AI 简历工作台",
   "license": "MIT",
   "type": "module",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:exports": "node qa/export-check.mjs",
+    "test:storage": "node qa/storage-check.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -39,6 +41,7 @@
     "@types/react-dom": "^18.3.1",
     "@types/uuid": "^9.0.7",
     "@vitejs/plugin-react": "^4.3.4",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4.1.7",
     "typescript": "^5.7.0",
     "vite": "^6.3.5",

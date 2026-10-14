@@ -4,9 +4,10 @@ import type {
   Section,
   SectionType,
   CoverLetter,
+  JD,
 } from "../types";
 import { EN_SECTION_LABELS, SECTION_LABELS } from "../types";
-import { stripHtml, nowISO } from "./utils";
+import { stripHtml, nowISO, containsTerm } from "./utils";
 
 export const CORE_MODULES: { type: SectionType; label: string }[] = [
   { type: "basic_info", label: "基本信息" },
@@ -98,8 +99,11 @@ export function inspectResume(r: Resume): ResumeIssue[] {
     !moduleFilled(r, "project_experience")
   )
     add("experience", "请补充工作、实习或项目经历");
-  if (r.audience === "student" && !moduleFilled(r, "education"))
-    add("education", "应届生简历建议补充教育经历");
+  if (
+    (r.audience === "student" || r.audience === "internship") &&
+    !moduleFilled(r, "education")
+  )
+    add("education", "校招、实习简历建议补充教育经历");
   if (!moduleFilled(r, "skills"))
     add("skills", "建议填写与岗位相关的真实技能", undefined, undefined, "info");
   for (const s of r.data.sections.filter(
@@ -162,7 +166,8 @@ export function completion(r: Resume) {
     moduleFilled(r, "work_experience") || moduleFilled(r, "project_experience"),
     moduleFilled(r, "skills"),
   ];
-  if (r.audience === "student") checks.push(moduleFilled(r, "education"));
+  if (r.audience === "student" || r.audience === "internship")
+    checks.push(moduleFilled(r, "education"));
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
 export function sectionLabel(s: Section, locale: Resume["locale"]): string {
@@ -193,32 +198,67 @@ export function localizedResume(r: Resume): Resume {
     },
   };
 }
+export function coverLetterEvidence(r: Resume, jd?: JD): string[] {
+  const terms = jd
+    ? [...new Set([...jd.structured.skills, ...jd.structured.keywords])]
+    : [];
+  return [
+    ...new Set(
+      r.data.sections
+        .filter(
+          (s) =>
+            s.visible &&
+            ["work_experience", "project_experience"].includes(s.type)
+        )
+        .flatMap((s) =>
+          s.blocks
+            .filter((b) => b.visible)
+            .flatMap((b) =>
+              [b.description, ...b.bullets].filter(hasText).map(stripHtml)
+            )
+        )
+    ),
+  ]
+    .map((text, order) => ({
+      text,
+      order,
+      relevance: terms.filter((t) => containsTerm(text, t)).length,
+    }))
+    .sort((a, b) => b.relevance - a.relevance || a.order - b.order)
+    .map((x) => x.text);
+}
 export function createCoverLetterDraft(
   r: Resume,
   company: string,
-  jobTitle: string
+  jobTitle: string,
+  options: {
+    jd?: JD;
+    evidence?: string[];
+    motivation?: string;
+    contribution?: string;
+  } = {}
 ): CoverLetter {
   const locale = r.locale ?? "zh";
-  const evidence = r.data.sections
-    .filter(
-      (s) =>
-        s.visible && ["work_experience", "project_experience"].includes(s.type)
-    )
-    .flatMap((s) =>
-      s.blocks
-        .filter((b) => b.visible)
-        .flatMap((b) => b.bullets.filter(hasText).map(stripHtml))
-    )
-    .slice(0, 3);
+  const available = coverLetterEvidence(r, options.jd);
+  const evidence = (
+    options.evidence
+      ? options.evidence.filter((s) => available.includes(s))
+      : available
+  ).slice(0, 3);
   const skills = r.data.sections
     .filter((s) => s.visible && s.type === "skills")
     .flatMap((s) => s.blocks.filter((b) => b.visible).flatMap((b) => b.skills))
     .slice(0, 8);
+  const personal = [options.motivation?.trim(), options.contribution?.trim()]
+    .filter(Boolean)
+    .join("\n\n");
   const body =
     locale === "en"
       ? `Dear Hiring Team,\n\nI am applying for the ${
           jobTitle || "[role]"
         } position at ${company || "[company]"}.\n\n${
+          personal ? personal + "\n\n" : ""
+        }${
           evidence.length
             ? "My relevant experience includes:\n" +
               evidence.map((s) => "• " + s).join("\n")
@@ -232,7 +272,7 @@ export function createCoverLetterDraft(
         }`
       : `尊敬的招聘负责人：\n\n您好！我希望应聘${company || "[公司名称]"}的${
           jobTitle || "[职位名称]"
-        }岗位。\n\n${
+        }岗位。\n\n${personal ? personal + "\n\n" : ""}${
           evidence.length
             ? "以下是我与岗位相关的经历：\n" +
               evidence.map((s) => "• " + s).join("\n")

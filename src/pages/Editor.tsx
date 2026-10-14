@@ -25,12 +25,14 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { AIAction, Resume, Section } from "../types";
-import { TEMPLATES } from "../types";
+import { AUDIENCE_LABELS, TEMPLATES } from "../types";
 import { cx } from "../lib/utils";
 import { useAppSlice, useResume } from "../lib/store";
 import { SectionCard } from "../components/blocks";
 import { AIPanel, JDPanel, OutlinePanel } from "../components/panels";
 import ResumePreview from "../components/resume-preview";
+import WorkflowSteps from "../components/workflow-steps";
+import SourceUpdate from "../components/source-update";
 import ExportDialog from "../components/export-dialog";
 import WorkflowDialog, {
   type WorkflowTool,
@@ -40,103 +42,36 @@ import type { PageLayout } from "../lib/pagination";
 import { completion, inspectResume } from "../lib/workflow";
 import { Btn, Modal, ModalHeader, SaveIndicator } from "../components/ui";
 import {
-  IconAlert,
   IconBookOpen,
   IconCheck,
-  IconChevronDown,
   IconChevronLeft,
   IconGrip,
-  IconLayout,
-  IconPalette,
   IconPanelRight,
   IconPlus,
-  IconPrinter,
   IconSpark,
   IconTarget,
-  IconX,
 } from "../components/icons";
 
-const THEME_COLORS = ["#4F46E5", "#1d4ed8", "#9f1239", "#b45309", "#334155"];
-
-/** 工具栏下拉菜单：点击展开，点击外部 / 按 Esc 关闭。带图标 + 功能副标签 + 面板说明，让新用户一眼看懂这组设置管什么 */
-function ToolbarMenu({
-  label,
-  hint,
-  desc,
-  icon: Icon,
-  children,
-}: {
-  label: string;
-  hint: string;
-  desc: string;
-  icon: (p: {
-    size?: number;
-    className?: string;
-    style?: CSSProperties;
-  }) => ReactNode;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={desc}
-        className={cx(
-          "flex items-center gap-2 rounded-lg bg-white px-2.5 py-1 text-left shadow-sm shadow-ink-950/5 ring-1 ring-ink-100 transition hover:ring-ink-200",
-          open ? "text-brand-700 ring-brand-200" : "text-ink-600"
-        )}
-      >
-        <Icon
-          size={15}
-          className={cx("shrink-0", open ? "text-brand-500" : "text-ink-400")}
-        />
-        <span className="flex flex-col leading-tight">
-          <span className="text-[12px] font-semibold">{label}</span>
-          <span className="text-[10px] text-ink-400">{hint}</span>
-        </span>
-        <IconChevronDown
-          size={13}
-          className={cx(
-            "shrink-0 text-ink-300 transition-transform duration-150",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute left-0 top-[calc(100%+8px)] z-30 w-64 rounded-2xl border border-ink-200 bg-white p-3.5 shadow-xl shadow-ink-950/15"
-        >
-          <p className="mb-2.5 border-b border-ink-100 pb-2 text-[11px] leading-snug text-ink-400">
-            {desc}
-          </p>
-          {children}
-        </div>
-      )}
-    </div>
-  );
+function navigateTabs(event: React.KeyboardEvent<HTMLDivElement>) {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const tabs = Array.from(
+    event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+  ).filter((tab) => tab.getClientRects().length > 0);
+  if (!tabs.length) return;
+  const index = tabs.indexOf(document.activeElement as HTMLButtonElement);
+  const next =
+    event.key === "Home"
+      ? 0
+      : event.key === "End"
+      ? tabs.length - 1
+      : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) %
+        tabs.length;
+  event.preventDefault();
+  tabs[next].click();
+  tabs[next].focus();
 }
+
+const THEME_COLORS = ["#4F46E5", "#1d4ed8", "#9f1239", "#b45309", "#334155"];
 
 /** 下拉菜单内的分组小标题 + 内容 */
 function MenuSection({
@@ -161,14 +96,12 @@ function SortableSection({
   section,
   onRequestAI,
   highlight,
-  dim,
   onHover,
 }: {
   resume: Resume;
   section: Section;
   onRequestAI: (s: string, b: string, a: AIAction) => void;
   highlight?: boolean;
-  dim?: boolean;
   onHover?: (id: string | null) => void;
 }) {
   const {
@@ -195,10 +128,7 @@ function SortableSection({
       }}
       className={cx(
         "rounded-xl transition-[opacity,box-shadow] duration-300",
-        highlight &&
-          !isDragging &&
-          "shadow-[0_16px_40px_-26px_rgba(99,102,241,0.6)] ring-1 ring-brand-300",
-        dim && "opacity-55",
+        highlight && !isDragging && "ring-1 ring-brand-200",
         isDragging &&
           "z-20 opacity-95 shadow-[0_24px_48px_-12px_rgba(99,102,241,0.45)] ring-1 ring-brand-300"
       )}
@@ -212,8 +142,8 @@ function SortableSection({
             {...attributes}
             {...listeners}
             className="cursor-grab touch-none rounded p-1 text-ink-300 transition hover:bg-paper-200 hover:text-ink-600 active:cursor-grabbing"
-            aria-label="拖动调整模块顺序"
-            title="拖动调整模块顺序"
+            aria-label="拖动调整栏目顺序"
+            title="拖动调整栏目顺序"
           >
             <IconGrip size={15} />
           </button>
@@ -226,7 +156,11 @@ function SortableSection({
 export default function Editor({ resumeId }: { resumeId: string }) {
   const resume = useResume(resumeId);
   const parentResume = useResume(resume?.target?.source_resume_id);
+  const [sourceUpdateOpen, setSourceUpdateOpen] = useState(false);
   const app = useAppSlice(
+    "jds",
+    "snapshots",
+    "applications",
     "go",
     "requestSuggestion",
     "reorderSections",
@@ -243,7 +177,31 @@ export default function Editor({ resumeId }: { resumeId: string }) {
     blockId: string;
   } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [editorMode, setEditorMode] = useState<"content" | "layout">("content");
+  const [editorMode, setEditorMode] = useState<
+    "content" | "layout" | "preview"
+  >("content");
+  const [canSplit, setCanSplit] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(min-width: 1280px)").matches
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1280px)");
+    const sync = () => {
+      setCanSplit(media.matches);
+      if (!media.matches)
+        setEditorMode((mode) => (mode === "layout" ? "content" : mode));
+    };
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<
+    "document" | "template" | "style" | "layout"
+  >("template");
+  const [splitRatio, setSplitRatio] = useState(43);
+  const splitRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<WorkflowTool | null>(null);
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [livePages, setLivePages] = useState<PageLayout[]>([]);
@@ -270,7 +228,6 @@ export default function Editor({ resumeId }: { resumeId: string }) {
     "none"
   );
   // 正在输入时不淡化：编辑动作发生在某个卡片内部，淡化它的邻居会干扰输入
-  const [editingField, setEditingField] = useState(false);
   const sectionIdsKey = sections.map((s) => s.section_id).join(",");
 
   useEffect(() => {
@@ -295,7 +252,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
     compute();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener("scroll", onScroll, true);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [sectionIdsKey]);
@@ -356,397 +313,201 @@ export default function Editor({ resumeId }: { resumeId: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* 顶部工具栏：按功能分组，减少视觉混乱 */}
-      <div className="flex flex-wrap items-center gap-2.5 border-b border-ink-200 bg-paper-25 px-4 py-2.5">
-        {/* 文档组 */}
-        <div className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 shadow-sm shadow-ink-950/5 ring-1 ring-ink-100">
+      <header
+        className="shrink-0 border-b border-line bg-white px-3 py-2 sm:px-4"
+        data-testid="editor-header"
+      >
+        <div className="flex items-center gap-2">
           <button
+            className="tool-btn shrink-0"
+            aria-label="返回工作台"
             onClick={() => app.go({ name: "home" })}
-            className="tool-btn h-7 w-7"
-            aria-label="返回"
           >
-            <IconChevronLeft size={16} />
+            <IconChevronLeft size={18} />
           </button>
           <input
+            aria-label="简历标题"
+            title={resume.title}
+            className="min-w-0 flex-1 truncate border-0 bg-transparent px-1 text-[15px] font-semibold text-ink-900 outline-none focus:ring-1 focus:ring-brand-300"
             value={resume.title}
             onChange={(e) => app.renameResume(resumeId, e.target.value)}
-            className="w-40 rounded-md border border-transparent bg-transparent px-1.5 py-0.5 font-display text-[15px] font-bold text-ink-900 outline-none transition hover:border-ink-200 focus:border-brand-500 focus:bg-white"
-            aria-label="简历标题"
           />
-          <SaveIndicator />
-        </div>
-
-        {/* 模板组 */}
-        <div className="flex items-center gap-1 rounded-lg bg-white px-2 py-1.5 shadow-sm shadow-ink-950/5 ring-1 ring-ink-100">
-          <span className="hidden pr-1 text-[10px] font-bold uppercase tracking-wider text-ink-300 lg:inline">
-            模板
-          </span>
-          <div className="flex rounded-md bg-paper-100 p-0.5">
-            {TEMPLATES.map((t) => (
-              <button
-                key={t.template_id}
-                onClick={() => app.setTemplate(resumeId, t.template_id)}
-                className={cx(
-                  "rounded-md px-2.5 py-1 text-[11px] font-bold transition",
-                  resume.template_id === t.template_id
-                    ? "bg-brand-600 text-white shadow-sm"
-                    : "text-ink-500 hover:bg-paper-200 hover:text-ink-800"
-                )}
-                title={t.description}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 外观下拉：主题色（仅非 ATS） + 字号 + 字体 */}
-        <ToolbarMenu
-          label="外观样式"
-          hint="颜色 · 字体 · 字号"
-          desc="调整整份简历的配色、正文字号与字体，对所有模块统一生效。"
-          icon={IconPalette}
-        >
-          {resume.template_id !== "classic_ats" && (
-            <MenuSection title="主题色">
-              <div className="flex items-center gap-1.5 px-1">
-                {THEME_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => app.setTheme(resumeId, { primary_color: c })}
-                    className={cx(
-                      "relative flex h-[22px] w-[22px] items-center justify-center rounded-full transition hover:scale-110",
-                      resume.theme.primary_color === c
-                        ? "ring-2 ring-offset-1 ring-ink-900"
-                        : "ring-1 ring-ink-200 hover:ring-ink-400"
-                    )}
-                    style={{ background: c }}
-                    aria-label={`主题色 ${c}`}
-                  >
-                    {resume.theme.primary_color === c && (
-                      <IconCheck size={12} className="text-white" />
-                    )}
-                  </button>
-                ))}
-                <label
-                  className="relative flex h-[22px] w-[22px] cursor-pointer items-center justify-center rounded-full ring-1 ring-ink-200 transition hover:ring-ink-400"
-                  title="自定义主题色"
-                >
-                  <input
-                    type="color"
-                    value={resume.theme.primary_color}
-                    onChange={(e) =>
-                      app.setTheme(resumeId, { primary_color: e.target.value })
-                    }
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                    aria-label="自定义主题色"
-                  />
-                  <div className="h-3 w-3 rounded-full bg-gradient-to-br from-red-400 via-green-400 to-blue-400" />
-                </label>
-              </div>
-            </MenuSection>
-          )}
-
-          <MenuSection title="字号">
-            <div className="flex gap-1 rounded-lg bg-paper-100 p-0.5">
-              {[13, 14, 15].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => app.setTheme(resumeId, { font_size: n })}
-                  className={cx(
-                    "flex-1 rounded-md px-2 py-1 font-mono text-[11px] font-bold transition",
-                    resume.theme.font_size === n
-                      ? "bg-white text-ink-900 shadow-sm"
-                      : "text-ink-500 hover:bg-paper-200 hover:text-ink-800"
-                  )}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </MenuSection>
-
-          <MenuSection title="字体">
-            <div className="grid grid-cols-3 gap-1">
-              {(
-                [
-                  ["sans", "黑体"],
-                  ["serif", "宋体"],
-                  ["system", "系统"],
-                  ["kai", "楷体"],
-                  ["mono", "等宽"],
-                  ["fangsong", "仿宋"],
-                ] as const
-              ).map(([k, label]) => (
-                <button
-                  key={k}
-                  onClick={() => app.setTheme(resumeId, { font_family: k })}
-                  className={cx(
-                    "rounded-md px-1.5 py-1 text-[11px] font-medium transition",
-                    (resume.theme.font_family ?? "sans") === k
-                      ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
-                      : "bg-paper-100 text-ink-500 hover:bg-paper-200 hover:text-ink-800"
-                  )}
-                  title={`字体：${label}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </MenuSection>
-        </ToolbarMenu>
-
-        {/* 布局下拉：密度 + 条头（条头仅非 ATS） */}
-        <ToolbarMenu
-          label="排版布局"
-          hint="间距 · 疏密 · 一页篇幅"
-          desc="调整整份简历的行距与模块间距：内容偏多选紧凑，偏少选宽松，让简历恰好一页。"
-          icon={IconLayout}
-        >
-          <MenuSection title="密度（内容多选紧凑）">
-            <div className="flex gap-1 rounded-lg bg-paper-100 p-0.5">
-              {(
-                [
-                  ["compact", "紧凑"],
-                  ["medium", "中等"],
-                  ["loose", "宽松"],
-                ] as const
-              ).map(([k, label]) => (
-                <button
-                  key={k}
-                  onClick={() => app.setTheme(resumeId, { density: k })}
-                  className={cx(
-                    "flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition",
-                    (resume.theme.density ?? "medium") === k
-                      ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
-                      : "text-ink-500 hover:bg-paper-200 hover:text-ink-800"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </MenuSection>
-          {resume.template_id !== "classic_ats" && (
-            <MenuSection title="条目标题排布">
-              <div className="flex gap-1 rounded-lg bg-paper-100 p-0.5">
-                {(
-                  [
-                    ["row", "标题 · 日期同行"],
-                    ["stack", "日期另起一行"],
-                  ] as const
-                ).map(([k, label]) => (
-                  <button
-                    key={k}
-                    onClick={() => app.setTheme(resumeId, { header_layout: k })}
-                    className={cx(
-                      "flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition",
-                      (resume.theme.header_layout ?? "row") === k
-                        ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
-                        : "text-ink-500 hover:bg-paper-200 hover:text-ink-800"
-                    )}
-                    title={
-                      k === "row"
-                        ? "标题居左，日期居右"
-                        : "标题居上，日期与地点居下"
-                    }
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </MenuSection>
-          )}
-
-          {resume.template_id === "academic_photo" && (
-            <MenuSection title="头像大小">
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min={0.5}
-                  max={2}
-                  step={0.1}
-                  value={resume.theme.avatar_scale ?? 1}
-                  onChange={(e) =>
-                    app.setTheme(resumeId, {
-                      avatar_scale: Number(e.target.value),
-                    })
-                  }
-                  className="h-1 min-w-0 flex-1 accent-brand-600"
-                  aria-label="头像显示比例"
-                />
-                <span className="w-10 shrink-0 text-right font-mono text-[11px] text-ink-500">
-                  {(resume.theme.avatar_scale ?? 1).toFixed(1)}×
-                </span>
-              </div>
-              <p className="mt-1 text-[11px] leading-snug text-ink-400">
-                基于 1
-                寸照（25×35mm）基准按比例缩放，0.5×–2.0×；未上传头像时无效。
-              </p>
-            </MenuSection>
-          )}
-
-          <MenuSection title="要点列表">
-            <p className="rounded-lg bg-paper-100 px-2 py-1.5 text-[11px] leading-snug text-ink-500">
-              已改为
-              <strong className="font-semibold text-ink-700">按模块设置</strong>
-              ：在中间栏各模块的「要点」编辑区右上角切换（菱形 / 圆点 / 方块 /
-              空心圆 / 箭头 / 对勾 / 有序），每条要点可点行首符号单独开关。
-            </p>
-          </MenuSection>
-        </ToolbarMenu>
-
-        {/* 操作组 */}
-        <div className="ml-auto flex items-center gap-2.5">
-          {/* 移动端抽屉开关：<md 显示，桌面隐藏 */}
-          <div className="flex items-center gap-1.5 2xl:hidden">
-            <button
-              className={cx(
-                "tool-btn h-8 w-8",
-                mobilePanel === "outline" && "bg-brand-50 text-brand-700"
-              )}
-              aria-label="打开模块大纲"
-              title="模块大纲"
-              onClick={() => {
-                setEditorMode("content");
-                setMobilePanel((m) => (m === "outline" ? "none" : "outline"));
-              }}
-            >
-              <IconBookOpen size={16} />
-            </button>
-            <button
-              className={cx(
-                "tool-btn h-8 w-8",
-                mobilePanel === "panel" && "bg-brand-50 text-brand-700"
-              )}
-              aria-label="打开 AI 与 JD 面板"
-              title="AI / JD 面板"
-              onClick={() => {
-                setEditorMode("content");
-                setMobilePanel((m) => (m === "panel" ? "none" : "panel"));
-              }}
-            >
-              <IconPanelRight size={16} />
-            </button>
+          <div className="hidden shrink-0 sm:block">
+            <SaveIndicator />
           </div>
           <Btn
-            variant="outline"
-            className="h-8 text-[12px]"
-            onClick={() => setAddSecOpen(true)}
+            variant="ghost"
+            className="h-9 shrink-0 text-[12px]"
+            onClick={() => setSettingsOpen(true)}
           >
-            <IconPlus size={13} /> 添加模块
+            简历设置
           </Btn>
           <Btn
             variant="primary"
-            className="h-8 text-[12px]"
+            className="h-9 shrink-0 text-[12px]"
             onClick={() => setPreviewOpen(true)}
           >
-            <IconPrinter size={13} /> 检查 / 导出
+            导出
           </Btn>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-b border-line bg-white px-4 py-2 text-[11px]">
-        <div className="flex rounded-lg bg-paper-100 p-0.5">
+        <div className="mt-1 pl-9 sm:hidden">
+          <SaveIndicator />
+        </div>
+      </header>
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-white px-3 py-2 text-[12px] sm:px-4">
+        <div
+          className="flex rounded-lg bg-paper-100 p-0.5"
+          role="tablist"
+          onKeyDown={navigateTabs}
+          aria-label="编辑视图"
+        >
           {(
             [
               ["content", "写内容"],
-              ["layout", "看版式 / 实时预览"],
+              ["layout", "内容与预览"],
+              ["preview", "仅预览"],
             ] as const
-          ).map(([mode, label]) => (
-            <button
-              key={mode}
-              className={cx(
-                "rounded-md px-3 py-1.5",
-                editorMode === mode && "bg-brand-600 text-white"
-              )}
-              onClick={() => {
-                setEditorMode(mode);
-                setMobilePanel("none");
-              }}
-            >
-              {label}
-            </button>
-          ))}
+          )
+            .filter(([mode]) => mode !== "layout" || canSplit)
+            .map(([mode, label]) => (
+              <button
+                key={mode}
+                role="tab"
+                aria-selected={editorMode === mode}
+                tabIndex={editorMode === mode ? 0 : -1}
+                className={cx(
+                  "rounded-md px-2 py-1.5 sm:px-3",
+                  editorMode === mode
+                    ? "bg-white font-semibold text-ink-900 shadow-sm"
+                    : "text-ink-500"
+                )}
+                onClick={() => {
+                  setEditorMode(mode);
+                  setMobilePanel("none");
+                }}
+              >
+                {label}
+              </button>
+            ))}
         </div>
-        <label className="flex items-center gap-1">
-          场景
-          <select
-            aria-label="求职场景"
-            className="rounded border border-line px-1 py-1"
-            value={resume.audience ?? "experienced"}
-            onChange={(e) =>
-              app.setResumeOptions(resumeId, {
-                audience: e.target.value as Resume["audience"],
-              })
-            }
-          >
-            <option value="experienced">社招</option>
-            <option value="student">应届 / 实习</option>
-            <option value="career_change">转行</option>
-          </select>
-        </label>
-        <label className="flex items-center gap-1">
-          版式
-          <select
-            aria-label="版式语言"
-            className="rounded border border-line px-1 py-1"
-            value={resume.locale ?? "zh"}
-            onChange={(e) =>
-              app.setResumeOptions(resumeId, {
-                locale: e.target.value as Resume["locale"],
-              })
-            }
-          >
-            <option value="zh">中文</option>
-            <option value="en">English</option>
-          </select>
-        </label>
-        <select
-          aria-label="简历工具"
-          className="max-w-40 rounded border border-line px-2 py-1"
-          value=""
-          onChange={(e) => {
-            if (e.target.value) setTool(e.target.value as WorkflowTool);
-          }}
-        >
-          <option value="">更多工具…</option>
-          <option value="target">为岗位创建版本</option>
-          <option value="versions">快照 / 比较 / 恢复</option>
-          <option value="module">优化当前模块</option>
-          <option value="templates">模板缩略图</option>
-          <option value="letter">求职信</option>
-          <option value="source">查看导入原文</option>
-        </select>
         <Btn
           variant="ghost"
-          className="h-7 text-[11px]"
-          onClick={() => setApplicationOpen(true)}
+          className="h-8 text-[12px]"
+          onClick={() => {
+            setEditorMode("content");
+            setMobilePanel((m) => (m === "outline" ? "none" : "outline"));
+          }}
         >
-          记录投递
+          <IconBookOpen size={14} />
+          目录
         </Btn>
-        {parentResume && (
-          <Btn
-            variant="ghost"
-            className="h-7 text-[11px]"
-            onClick={() =>
-              app.go({ name: "editor", resumeId: parentResume.id })
-            }
-          >
-            查看母版
-          </Btn>
-        )}
-        <span className="ml-auto text-ink-500">
-          内容完整度 {completion(resume)}% ·{" "}
-          {inspectResume(resume).filter((i) => i.severity === "warning").length}{" "}
-          项待检查
-          {editorMode === "layout" && livePages.length > 0
+        <Btn
+          variant="ghost"
+          className="h-8 text-[12px]"
+          onClick={() => {
+            setEditorMode("content");
+            setMobilePanel((m) => (m === "panel" ? "none" : "panel"));
+          }}
+        >
+          <IconPanelRight size={14} />
+          建议
+        </Btn>
+        <select
+          aria-label="辅助工具"
+          className="max-w-32 rounded border border-line bg-white px-2 py-1.5"
+          value=""
+          onChange={(e) => {
+            if (e.target.value === "parent" && parentResume)
+              app.go({ name: "editor", resumeId: parentResume.id });
+            else if (e.target.value) setTool(e.target.value as WorkflowTool);
+          }}
+        >
+          <option value="">辅助工具</option>
+          <option value="versions">版本记录</option>
+          <option value="letter">求职信</option>
+          <option value="source">导入原文</option>
+          {parentResume && <option value="parent">返回主简历</option>}
+        </select>
+        <span
+          className="ml-auto text-[11px] text-ink-500"
+          title={`基础字段完成度 ${completion(resume)}%，仅表示填写情况`}
+        >
+          {inspectResume(resume).filter((i) => i.severity === "warning").length
+            ? `${
+                inspectResume(resume).filter((i) => i.severity === "warning")
+                  .length
+              } 项待检查`
+            : "基础检查通过"}
+          {editorMode !== "content" && livePages.length
             ? ` · ${livePages.length} 页`
             : ""}
         </span>
       </div>
-
-      {/* 三栏：<md 折叠为单栏（左右栏转抽屉），md+ 恢复三栏网格 */}
+      {resume.archived_at && (
+        <p className="px-4 py-2 text-[12px] text-ink-500">
+          这份简历已归档，投递历史和快照仍保留；可在工作台的已归档列表恢复。
+        </p>
+      )}
+      {parentResume && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-[12px] text-ink-500">
+          <span>来源：{parentResume.title} · 独立岗位版本</span>
+          {resume.target?.source_updated_at &&
+            parentResume.updated_at > resume.target.source_updated_at && (
+              <span className="text-seal-700">
+                主简历已有更新，岗位内容未自动覆盖
+              </span>
+            )}
+          <Btn
+            variant="ghost"
+            onClick={() =>
+              app.go({ name: "editor", resumeId: parentResume.id })
+            }
+          >
+            查看主简历
+          </Btn>
+          <Btn variant="ghost" onClick={() => setSourceUpdateOpen(true)}>
+            对照并选择更新
+          </Btn>
+        </div>
+      )}
+      {sourceUpdateOpen && parentResume && (
+        <SourceUpdate
+          resume={resume}
+          source={parentResume}
+          onClose={() => setSourceUpdateOpen(false)}
+        />
+      )}
+      <WorkflowSteps
+        resume={resume}
+        hasJD={!!app.jds[resumeId]}
+        hasExport={app.snapshots.some(
+          (s) => s.resume_id === resumeId && s.kind === "export"
+        )}
+        hasApplication={app.applications.some((a) => a.resume_id === resumeId)}
+        onStep={(step) => {
+          if (step === 0) {
+            if (resume.data.metadata.source_text) setTool("source");
+            else {
+              setEditorMode("content");
+              locate(
+                sections.find((s) => s.type === "basic_info")?.section_id ??
+                  sections[0]?.section_id ??
+                  ""
+              );
+            }
+          } else if (step === 1) {
+            if (!app.jds[resumeId] && !resume.target) setTool("target");
+            else {
+              setPanelTab("jd");
+              setEditorMode("content");
+              setMobilePanel("panel");
+            }
+          } else if (step === 2) setTool("module");
+          else if (step === 3) setPreviewOpen(true);
+          else setApplicationOpen(true);
+        }}
+      />
+      {/* 内容与预览：宽屏并排，窄屏工具面板使用抽屉 */}
       {mobilePanel !== "none" && (
         <div
           className="fixed inset-0 z-30 bg-ink-950/45 2xl:hidden"
@@ -772,74 +533,135 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           >
             <button
               className="px-3 py-2 text-[11px] text-ink-500 2xl:hidden"
-              aria-label="关闭模块大纲"
+              aria-label="关闭目录"
               onClick={() => setMobilePanel("none")}
             >
-              关闭大纲
+              关闭目录
             </button>
-            <OutlinePanel resume={resume} activeId={activeSection} />
+            <OutlinePanel
+              resume={resume}
+              activeId={activeSection}
+              onAdd={() => setAddSecOpen(true)}
+            />
           </aside>
         )}
 
         <main
           ref={scrollRef}
-          className="min-h-0 overflow-y-auto bg-paper-100 px-5 py-5"
+          className={cx(
+            "min-h-0 bg-paper-50 p-3 sm:p-4",
+            editorMode === "layout"
+              ? "overflow-y-auto xl:overflow-hidden"
+              : "overflow-y-auto"
+          )}
           onFocusCapture={(e) => {
-            setEditingField(true);
             const card = (e.target as HTMLElement).closest<HTMLElement>(
               "[data-section-id]"
             );
             if (card?.dataset.sectionId)
               setActiveSection(card.dataset.sectionId);
           }}
-          onBlurCapture={() => setEditingField(false)}
         >
           <div
-            className={cx(
-              editorMode === "layout" && "grid items-start gap-5 xl:grid-cols-2"
-            )}
+            ref={splitRef}
+            className={cx(editorMode === "layout" && "editor-split")}
+            style={{ "--editor-split": `${splitRatio}%` } as CSSProperties}
           >
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={onDragEnd}
-            >
-              <SortableContext
-                items={sections.map((s) => s.section_id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="mx-auto flex max-w-3xl flex-col gap-4 pb-10">
-                  {sections.map((s) => {
-                    const current = hoverSection ?? activeSection;
-                    return (
-                      <SortableSection
-                        key={s.section_id}
-                        resume={resume}
-                        section={s}
-                        onRequestAI={onRequestAI}
-                        highlight={current === s.section_id}
-                        dim={
-                          sections.length >= 2 &&
-                          !editingField &&
-                          current !== null &&
-                          current !== s.section_id
-                        }
-                        onHover={setHoverSection}
-                      />
-                    );
-                  })}
-                  <button
-                    onClick={() => setAddSecOpen(true)}
-                    className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-ink-200 py-4 text-[13px] font-medium text-ink-400 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
+            {editorMode !== "preview" && (
+              <>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={onDragEnd}
+                >
+                  <SortableContext
+                    items={sections.map((s) => s.section_id)}
+                    strategy={verticalListSortingStrategy}
                   >
-                    <IconPlus size={14} /> 添加自定义模块（可参与拖拽排序）
-                  </button>
-                </div>
-              </SortableContext>
-            </DndContext>
+                    <div
+                      className={cx(
+                        "editor-content mx-auto flex w-full min-w-0 flex-col gap-4 pb-10",
+                        editorMode === "content" && "max-w-3xl"
+                      )}
+                    >
+                      {sections.map((s) => {
+                        const current = hoverSection ?? activeSection;
+                        return (
+                          <SortableSection
+                            key={s.section_id}
+                            resume={resume}
+                            section={s}
+                            onRequestAI={onRequestAI}
+                            highlight={current === s.section_id}
+                            onHover={setHoverSection}
+                          />
+                        );
+                      })}
+                      <button
+                        onClick={() => setAddSecOpen(true)}
+                        className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-ink-200 py-4 text-[13px] font-medium text-ink-400 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
+                      >
+                        <IconPlus size={14} /> 添加栏目
+                      </button>
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </>
+            )}
             {editorMode === "layout" && (
               <div
-                className="min-w-0 rounded-xl border border-line"
+                role="separator"
+                aria-label="调整编辑与预览宽度"
+                aria-orientation="vertical"
+                aria-valuemin={34}
+                aria-valuemax={60}
+                aria-valuenow={splitRatio}
+                tabIndex={0}
+                className="hidden cursor-col-resize touch-none items-center justify-center rounded hover:bg-paper-200 focus:bg-paper-200 xl:flex"
+                onPointerDown={(e) =>
+                  e.currentTarget.setPointerCapture(e.pointerId)
+                }
+                onPointerMove={(e) => {
+                  if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+                  const rect = splitRef.current?.getBoundingClientRect();
+                  if (rect)
+                    setSplitRatio(
+                      Math.min(
+                        60,
+                        Math.max(
+                          34,
+                          ((e.clientX - rect.left) / rect.width) * 100
+                        )
+                      )
+                    );
+                }}
+                onPointerUp={(e) => {
+                  if (e.currentTarget.hasPointerCapture(e.pointerId))
+                    e.currentTarget.releasePointerCapture(e.pointerId);
+                }}
+                onKeyDown={(e) => {
+                  if (["ArrowLeft", "ArrowRight", "Home"].includes(e.key)) {
+                    e.preventDefault();
+                    setSplitRatio((r) =>
+                      e.key === "Home"
+                        ? 43
+                        : Math.max(
+                            34,
+                            Math.min(60, r + (e.key === "ArrowLeft" ? -2 : 2))
+                          )
+                    );
+                  }
+                }}
+              >
+                <span className="h-12 w-1 rounded bg-ink-200" />
+              </div>
+            )}
+            {editorMode !== "content" && (
+              <div
+                className={cx(
+                  "editor-preview min-w-0 rounded-xl border border-line bg-white",
+                  editorMode === "preview" && "mx-auto max-w-5xl"
+                )}
                 data-testid="live-preview"
               >
                 <ResumePreview resume={resume} onLayout={setLivePages} />
@@ -918,15 +740,323 @@ export default function Editor({ resumeId }: { resumeId: string }) {
         )}
       </div>
 
-      {/* 添加自定义模块 */}
+      <Modal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        width="max-w-2xl"
+      >
+        <ModalHeader
+          title="简历设置"
+          sub="调整栏目场景、模板和版式"
+          onClose={() => setSettingsOpen(false)}
+        />
+        <div className="px-5 pb-5">
+          <div
+            className="mb-4 flex gap-2 border-b border-line"
+            role="tablist"
+            onKeyDown={navigateTabs}
+            aria-label="简历设置分类"
+          >
+            {(
+              [
+                ["document", "文档"],
+                ["template", "模板"],
+                ["style", "外观"],
+                ["layout", "排版"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={settingsTab === id}
+                tabIndex={settingsTab === id ? 0 : -1}
+                className={cx(
+                  "border-b-2 px-3 py-2 text-[13px]",
+                  settingsTab === id
+                    ? "border-brand-600 text-brand-700"
+                    : "border-transparent text-ink-500"
+                )}
+                onClick={() => setSettingsTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="max-h-[60vh] overflow-y-auto" role="tabpanel">
+            {settingsTab === "document" && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-[13px]">
+                  求职场景
+                  <select
+                    aria-label="求职场景"
+                    className="field-input mt-1"
+                    value={resume.audience ?? "experienced"}
+                    onChange={(e) =>
+                      app.setResumeOptions(resumeId, {
+                        audience: e.target.value as Resume["audience"],
+                      })
+                    }
+                  >
+                    {Object.entries(AUDIENCE_LABELS).map(([id, label]) => (
+                      <option key={id} value={id}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-[13px]">
+                  版式语言
+                  <select
+                    aria-label="版式语言"
+                    className="field-input mt-1"
+                    value={resume.locale ?? "zh"}
+                    onChange={(e) =>
+                      app.setResumeOptions(resumeId, {
+                        locale: e.target.value as Resume["locale"],
+                      })
+                    }
+                  >
+                    <option value="zh">中文</option>
+                    <option value="en">英文版式</option>
+                  </select>
+                  <span className="mt-1 block text-[11px] text-ink-500">
+                    仅调整标准标题和日期，经历内容需单独翻译。
+                  </span>
+                </label>
+              </div>
+            )}
+            {settingsTab === "template" && (
+              <div className="grid gap-3 sm:grid-cols-3">
+                {TEMPLATES.map((t) => (
+                  <button
+                    key={t.template_id}
+                    aria-pressed={resume.template_id === t.template_id}
+                    className={cx(
+                      "rounded-xl border p-4 text-left",
+                      resume.template_id === t.template_id
+                        ? "border-brand-400 bg-brand-50"
+                        : "border-line bg-white"
+                    )}
+                    onClick={() => app.setTemplate(resumeId, t.template_id)}
+                  >
+                    <p className="text-[14px] font-semibold">{t.name}</p>
+                    <p className="mt-2 text-[12px] leading-relaxed text-ink-500">
+                      {t.description}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+            {settingsTab === "style" && (
+              <div>
+                {resume.template_id !== "classic_ats" && (
+                  <MenuSection title="主题色">
+                    <div className="flex items-center gap-1.5 px-1">
+                      {THEME_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          onClick={() =>
+                            app.setTheme(resumeId, { primary_color: c })
+                          }
+                          className={cx(
+                            "relative flex h-[22px] w-[22px] items-center justify-center rounded-full transition hover:scale-110",
+                            resume.theme.primary_color === c
+                              ? "ring-2 ring-offset-1 ring-ink-900"
+                              : "ring-1 ring-ink-200 hover:ring-ink-400"
+                          )}
+                          style={{ background: c }}
+                          aria-label={`主题色 ${c}`}
+                        >
+                          {resume.theme.primary_color === c && (
+                            <IconCheck size={12} className="text-white" />
+                          )}
+                        </button>
+                      ))}
+                      <label
+                        className="relative flex h-[22px] w-[22px] cursor-pointer items-center justify-center rounded-full ring-1 ring-ink-200 transition hover:ring-ink-400"
+                        title="自定义主题色"
+                      >
+                        <input
+                          type="color"
+                          value={resume.theme.primary_color}
+                          onChange={(e) =>
+                            app.setTheme(resumeId, {
+                              primary_color: e.target.value,
+                            })
+                          }
+                          className="absolute inset-0 cursor-pointer opacity-0"
+                          aria-label="自定义主题色"
+                        />
+                        <div className="h-3 w-3 rounded-full bg-gradient-to-br from-red-400 via-green-400 to-blue-400" />
+                      </label>
+                    </div>
+                  </MenuSection>
+                )}
+
+                <MenuSection title="字号">
+                  <div className="flex gap-1 rounded-lg bg-paper-100 p-0.5">
+                    {[13, 14, 15].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => app.setTheme(resumeId, { font_size: n })}
+                        className={cx(
+                          "flex-1 rounded-md px-2 py-1 font-mono text-[11px] font-bold transition",
+                          resume.theme.font_size === n
+                            ? "bg-white text-ink-900 shadow-sm"
+                            : "text-ink-500 hover:bg-paper-200 hover:text-ink-800"
+                        )}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </MenuSection>
+
+                <MenuSection title="字体">
+                  <div className="grid grid-cols-3 gap-1">
+                    {(
+                      [
+                        ["sans", "黑体"],
+                        ["serif", "宋体"],
+                        ["system", "系统"],
+                        ["kai", "楷体"],
+                        ["mono", "等宽"],
+                        ["fangsong", "仿宋"],
+                      ] as const
+                    ).map(([k, label]) => (
+                      <button
+                        key={k}
+                        onClick={() =>
+                          app.setTheme(resumeId, { font_family: k })
+                        }
+                        className={cx(
+                          "rounded-md px-1.5 py-1 text-[11px] font-medium transition",
+                          (resume.theme.font_family ?? "sans") === k
+                            ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
+                            : "bg-paper-100 text-ink-500 hover:bg-paper-200 hover:text-ink-800"
+                        )}
+                        title={`字体：${label}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </MenuSection>
+              </div>
+            )}
+            {settingsTab === "layout" && (
+              <div>
+                <MenuSection title="密度（内容多选紧凑）">
+                  <div className="flex gap-1 rounded-lg bg-paper-100 p-0.5">
+                    {(
+                      [
+                        ["compact", "紧凑"],
+                        ["medium", "中等"],
+                        ["loose", "宽松"],
+                      ] as const
+                    ).map(([k, label]) => (
+                      <button
+                        key={k}
+                        onClick={() => app.setTheme(resumeId, { density: k })}
+                        className={cx(
+                          "flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition",
+                          (resume.theme.density ?? "medium") === k
+                            ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
+                            : "text-ink-500 hover:bg-paper-200 hover:text-ink-800"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </MenuSection>
+                {resume.template_id !== "classic_ats" && (
+                  <MenuSection title="条目标题排布">
+                    <div className="flex gap-1 rounded-lg bg-paper-100 p-0.5">
+                      {(
+                        [
+                          ["row", "标题 · 日期同行"],
+                          ["stack", "日期另起一行"],
+                        ] as const
+                      ).map(([k, label]) => (
+                        <button
+                          key={k}
+                          onClick={() =>
+                            app.setTheme(resumeId, { header_layout: k })
+                          }
+                          className={cx(
+                            "flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition",
+                            (resume.theme.header_layout ?? "row") === k
+                              ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
+                              : "text-ink-500 hover:bg-paper-200 hover:text-ink-800"
+                          )}
+                          title={
+                            k === "row"
+                              ? "标题居左，日期居右"
+                              : "标题居上，日期与地点居下"
+                          }
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </MenuSection>
+                )}
+
+                {resume.template_id === "academic_photo" && (
+                  <MenuSection title="头像大小">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={0.5}
+                        max={2}
+                        step={0.1}
+                        value={resume.theme.avatar_scale ?? 1}
+                        onChange={(e) =>
+                          app.setTheme(resumeId, {
+                            avatar_scale: Number(e.target.value),
+                          })
+                        }
+                        className="h-1 min-w-0 flex-1 accent-brand-600"
+                        aria-label="头像显示比例"
+                      />
+                      <span className="w-10 shrink-0 text-right font-mono text-[11px] text-ink-500">
+                        {(resume.theme.avatar_scale ?? 1).toFixed(1)}×
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-snug text-ink-400">
+                      基于 1
+                      寸照（25×35mm）基准按比例缩放，0.5×–2.0×；未上传头像时无效。
+                    </p>
+                  </MenuSection>
+                )}
+
+                <MenuSection title="要点列表">
+                  <p className="rounded-lg bg-paper-100 px-2 py-1.5 text-[11px] leading-snug text-ink-500">
+                    已改为
+                    <strong className="font-semibold text-ink-700">
+                      按模块设置
+                    </strong>
+                    ：在中间栏各模块的「要点」编辑区右上角切换（菱形 / 圆点 /
+                    方块 / 空心圆 / 箭头 / 对勾 /
+                    有序），每条要点可点行首符号单独开关。
+                  </p>
+                </MenuSection>
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* 添加自定义栏目 */}
       <Modal
         open={addSecOpen}
         onClose={() => setAddSecOpen(false)}
         width="max-w-sm"
       >
         <ModalHeader
-          title="添加自定义模块"
-          sub="自定义模块可重命名、拖拽排序，并参与预览与导出"
+          title="添加自定义栏目"
+          sub="自定义栏目可重命名、调整位置，并参与预览与导出"
           onClose={() => setAddSecOpen(false)}
         />
         <div className="px-5 pb-5">
@@ -941,7 +1071,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 app.addSection(resumeId, newSecTitle.trim());
                 setNewSecTitle("");
                 setAddSecOpen(false);
-                app.toast("ok", "模块已添加");
+                app.toast("ok", "栏目已添加");
               }
             }}
           />
@@ -956,7 +1086,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 app.addSection(resumeId, newSecTitle.trim());
                 setNewSecTitle("");
                 setAddSecOpen(false);
-                app.toast("ok", "模块已添加");
+                app.toast("ok", "栏目已添加");
               }}
             >
               添加

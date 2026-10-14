@@ -14,6 +14,7 @@ import {
   SECTION_LABELS,
   TEMPLATES,
   BULLET_STYLE_OPTIONS,
+  AUDIENCE_LABELS,
 } from "../types";
 
 export interface BackupData {
@@ -130,9 +131,20 @@ const resume = object({
   created_at: date,
   updated_at: date,
   locale: optional(choice(["zh", "en"])),
-  audience: optional(choice(["student", "experienced", "career_change"])),
+  // Retired scene values remain readable without exposing them as new options.
+  audience: optional((value) =>
+    value === "career_change"
+      ? "experienced"
+      : choice(Object.keys(AUDIENCE_LABELS))(value)
+  ),
+  archived_at: optional(date),
   target: optional(
-    object({ company: text, job_title: text, source_resume_id: optional(id) })
+    object({
+      company: text,
+      job_title: text,
+      source_resume_id: optional(id),
+      source_updated_at: optional(date),
+    })
   ),
   theme: object({
     primary_color: (v) =>
@@ -231,7 +243,8 @@ const snapshot = object({
   id,
   resume_id: id,
   label: text,
-  kind: choice(["manual", "export"]),
+  kind: choice(["initial", "auto", "manual", "export"]),
+  summary: optional(text),
   created_at: date,
   resume,
   jd: optional(jd),
@@ -243,7 +256,35 @@ const application = object({
   company: text,
   role: text,
   url: text,
-  status: choice(["saved", "applied", "interview", "offer", "rejected"]),
+  status: choice([
+    "saved",
+    "applied",
+    "interview",
+    "offer",
+    "rejected",
+    "withdrawn",
+    "closed",
+  ]),
+  events: optional(
+    array(
+      object({
+        id,
+        status: choice([
+          "saved",
+          "applied",
+          "interview",
+          "offer",
+          "rejected",
+          "withdrawn",
+          "closed",
+        ]),
+        at: date,
+        note: text,
+        legacy: optional(bool),
+      }),
+      1000
+    )
+  ),
   notes: text,
   applied_at: text,
   follow_up_at: text,
@@ -327,7 +368,12 @@ export function parseBackup(
     1000
   )(input.applications ?? []) as Application[];
   unique(applications.map((a) => a.id));
-  for (const a of applications)
+  for (const a of applications) {
+    if (a.events) {
+      unique(a.events.map((event) => event.id));
+      if (!a.events.length || a.events[a.events.length - 1].status !== a.status)
+        fail();
+    }
     if (
       !ids.has(a.resume_id) ||
       (a.snapshot_id &&
@@ -336,6 +382,7 @@ export function parseBackup(
             a.resume_id))
     )
       fail();
+  }
   const coverLetters: Record<string, CoverLetter> = Object.fromEntries(
     Object.entries(record(input.coverLetters ?? {})).map(([key, value]) => {
       const parsed = letter(value) as CoverLetter;

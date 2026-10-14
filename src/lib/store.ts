@@ -31,8 +31,14 @@ import {
   type BackupData,
 } from "./backup";
 import { createBufferedStorage, type SaveStatus } from "./storage";
+import {
+  createDocumentStorage,
+  indexedDocumentBackend,
+} from "./document-storage";
 import { parseJD } from "./jd";
 import { viewHash } from "./navigation";
+import { resumeVersionContent, versionSummary } from "./versions";
+import { hasSubmission } from "./applications";
 
 export type View =
   | { name: "home" }
@@ -79,8 +85,14 @@ interface AppState {
   toast: (kind: Toast["kind"], msg: string) => void;
   dismissToast: (id: string) => void;
 
-  createResume: (data: ResumeData, title?: string) => string;
+  createResume: (
+    data: ResumeData,
+    title?: string,
+    options?: Pick<Resume, "locale" | "audience">
+  ) => string;
   deleteResume: (id: string) => void;
+  archiveResume: (id: string, archived: boolean) => void;
+  mergeSource: (id: string, sections: string[], basic: boolean) => boolean;
   duplicateResume: (id: string) => void;
   setResumeOptions: (
     id: string,
@@ -98,7 +110,7 @@ interface AppState {
     kind?: ResumeSnapshot["kind"]
   ) => string | null;
   restoreSnapshot: (id: string) => boolean;
-  saveApplication: (application: Application) => void;
+  saveApplication: (application: Application, feedback?: string) => boolean;
   deleteApplication: (id: string) => void;
   saveCoverLetter: (letter: CoverLetter) => void;
   requestSectionSuggestions: (
@@ -202,7 +214,24 @@ function withResume(
   resumeId: string,
   fn: (r: Resume) => Resume
 ): Partial<AppState> {
+  const original = state.resumes.find((r) => r.id === resumeId);
+  const baseline: ResumeSnapshot | undefined =
+    original && !state.snapshots.some((s) => s.resume_id === resumeId)
+      ? {
+          id: uid("snapshot"),
+          resume_id: resumeId,
+          label: "首次编辑前保存",
+          kind: "initial",
+          created_at: nowISO(),
+          summary: "首次记录的原始内容，此前修改历史未知",
+          resume: structuredClone(original),
+          ...(state.jds[resumeId]
+            ? { jd: structuredClone(state.jds[resumeId]) }
+            : {}),
+        }
+      : undefined;
   return {
+    ...(baseline ? { snapshots: [baseline, ...state.snapshots] } : {}),
     resumes: state.resumes.map((r) =>
       r.id === resumeId ? { ...fn(r), updated_at: nowISO() } : r
     ),
@@ -231,9 +260,23 @@ function advanceSuggestionQueue() {
       );
 }
 const persistedSuggestions = new WeakMap<Suggestion[], Suggestion[]>();
-const buffered = createBufferedStorage<
-  BackupData & { externalCallCount: number }
->(
+function storageFactory<T extends object>(
+  legacy: () => Storage,
+  status: (status: SaveStatus) => void,
+  delay: number,
+  validate: (state: T) => T
+) {
+  return typeof indexedDB === "undefined"
+    ? createBufferedStorage<T>(legacy, status, delay, validate)
+    : createDocumentStorage<T>(
+        indexedDocumentBackend(),
+        legacy,
+        status,
+        validate,
+        delay
+      );
+}
+const buffered = storageFactory<BackupData & { externalCallCount: number }>(
   () => localStorage,
   (saveStatus) =>
     queueMicrotask(() => {
@@ -254,8 +297,23 @@ const buffered = createBufferedStorage<
 export const flushSave = buffered.flush;
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", flushSave);
+  window.addEventListener("pagehide", () => {
+    saveAutomaticVersions();
+    void flushSave();
+  });
+  window.addEventListener("beforeunload", (event) => {
+    saveAutomaticVersions();
+    void flushSave();
+    if (["saving", "error"].includes(useApp.getState().saveStatus)) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+  });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flushSave();
+    if (document.visibilityState === "hidden") {
+      saveAutomaticVersions();
+      void flushSave();
+    }
   });
 }
 
@@ -296,6 +354,7 @@ export const useApp = create<AppState>()(
       saveStatus: "idle",
 
       go: (view) => {
+        saveAutomaticVersions();
         set({ view });
         if (
           typeof window !== "undefined" &&
@@ -312,7 +371,7 @@ export const useApp = create<AppState>()(
       dismissToast: (id) =>
         set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
-      createResume: (data, title) => {
+      createResume: (data, title, options) => {
         const id = uid("resume");
         const now = nowISO();
         const resume: Resume = {
@@ -330,12 +389,98 @@ export const useApp = create<AppState>()(
           },
           created_at: now,
           updated_at: now,
+          locale: options?.locale ?? "zh",
+          audience: options?.audience ?? "experienced",
         };
         set((s) => ({ resumes: [resume, ...s.resumes] }));
+        get().captureSnapshot(id, "创建主简历", "initial");
         return id;
       },
 
-      deleteResume: (id) =>
+      archiveResume: (id, archived) => {
+        saveAutomaticVersions();
+        set((s) => ({
+          resumes: s.resumes.map((r) =>
+            r.id === id
+              ? { ...r, archived_at: archived ? nowISO() : undefined }
+              : r
+          ),
+        }));
+      },
+      mergeSource: (id, sectionIds, basic) => {
+        const current = get().resumes.find((r) => r.id === id);
+        const source = get().resumes.find(
+          (r) => r.id === current?.target?.source_resume_id
+        );
+        if (
+          !current?.target ||
+          !source ||
+          source.id === id ||
+          (!basic && !sectionIds.length)
+        )
+          return false;
+        if (
+          sectionIds.some(
+            (sectionId) =>
+              !source.data.sections.some(
+                (s) => s.section_id === sectionId && s.type !== "basic_info"
+              )
+          )
+        )
+          return false;
+        const selected = source.data.sections.filter((s) =>
+          sectionIds.includes(s.section_id)
+        );
+        const sections = [...current.data.sections]
+          .sort((a, b) => a.order - b.order)
+          .map((s) =>
+            structuredClone(
+              selected.find((next) => next.section_id === s.section_id) ?? s
+            )
+          );
+        for (const section of selected)
+          if (!sections.some((s) => s.section_id === section.section_id))
+            sections.push(structuredClone(section));
+        sections.forEach((section, order) => {
+          section.order = order;
+        });
+        const blockIds = sections.flatMap((s) =>
+          s.blocks.map((b) => b.block_id)
+        );
+        if (new Set(blockIds).size !== blockIds.length) {
+          get().toast("warn", "栏目间存在同一条经历，请先手动整理再更新");
+          return false;
+        }
+        get().captureSnapshot(id, "从主简历更新前保存");
+        set((state) =>
+          withResume(state, id, (r) => ({
+            ...r,
+            target: { ...r.target!, source_updated_at: source.updated_at },
+            data: {
+              ...r.data,
+              sections,
+              basic_info: basic
+                ? {
+                    ...structuredClone(source.data.basic_info),
+                    title: r.data.basic_info.title,
+                  }
+                : r.data.basic_info,
+            },
+          }))
+        );
+        get().captureSnapshot(id, "从主简历更新所选栏目");
+        return true;
+      },
+
+      deleteResume: (id) => {
+        if (
+          get().applications.some((a) => a.resume_id === id) ||
+          get().resumes.some((r) => r.target?.source_resume_id === id)
+        ) {
+          get().archiveResume(id, true);
+          get().toast("info", "该简历有关联记录，已归档并保留历史");
+          return;
+        }
         set((s) => {
           s.suggestions
             .filter((x) => x.resume_id === id)
@@ -362,7 +507,8 @@ export const useApp = create<AppState>()(
                 ? { name: "home" }
                 : s.view,
           };
-        }),
+        });
+      },
 
       duplicateResume: (id) => {
         const src = get().resumes.find((r) => r.id === id);
@@ -372,6 +518,7 @@ export const useApp = create<AppState>()(
         copy.title = `${src.title} 副本`;
         copy.created_at = nowISO();
         copy.updated_at = nowISO();
+        copy.archived_at = undefined;
         const jd = get().jds[id];
         set((s) => ({
           resumes: [copy, ...s.resumes],
@@ -386,6 +533,7 @@ export const useApp = create<AppState>()(
               }
             : s.jds,
         }));
+        get().captureSnapshot(copy.id, "创建简历副本", "initial");
         get().toast("ok", "已复制简历");
       },
 
@@ -403,9 +551,13 @@ export const useApp = create<AppState>()(
           company: company.trim(),
           job_title: role.trim(),
           source_resume_id: source.target?.source_resume_id ?? id,
+          source_updated_at: get().resumes.find(
+            (r) => r.id === (source.target?.source_resume_id ?? id)
+          )?.updated_at,
         };
         copy.data.basic_info.title = role.trim();
         copy.created_at = copy.updated_at = nowISO();
+        copy.archived_at = undefined;
         const originalJD = get().jds[id];
         const jd = jdText.trim()
           ? parseJD(jdText, copy.id)
@@ -420,6 +572,7 @@ export const useApp = create<AppState>()(
           resumes: [copy, ...s.resumes],
           jds: jd ? { ...s.jds, [copy.id]: jd } : s.jds,
         }));
+        get().captureSnapshot(copy.id, "创建岗位简历", "initial");
         return copy.id;
       },
       captureSnapshot: (id, label, kind = "manual") => {
@@ -430,6 +583,10 @@ export const useApp = create<AppState>()(
           resume_id: id,
           label: label.trim() || "版本快照",
           kind,
+          summary: versionSummary(
+            get().snapshots.find((s) => s.resume_id === id)?.resume,
+            resume
+          ),
           created_at: nowISO(),
           resume: structuredClone(resume),
           ...(get().jds[id] ? { jd: structuredClone(get().jds[id]) } : {}),
@@ -439,7 +596,11 @@ export const useApp = create<AppState>()(
           let recent = 0;
           return {
             snapshots: [snapshot, ...s.snapshots].filter(
-              (x) => x.resume_id !== id || linked.has(x.id) || ++recent <= 20
+              (x) =>
+                x.resume_id !== id ||
+                x.kind === "initial" ||
+                linked.has(x.id) ||
+                ++recent <= 20
             ),
           };
         });
@@ -456,6 +617,9 @@ export const useApp = create<AppState>()(
         queueEpoch++;
         get().captureSnapshot(snapshot.resume_id, "恢复前自动保存");
         const copy = structuredClone(snapshot.resume);
+        copy.archived_at = get().resumes.find(
+          (r) => r.id === copy.id
+        )?.archived_at;
         copy.updated_at = nowISO();
         const jds = { ...get().jds };
         if (snapshot.jd) jds[copy.id] = structuredClone(snapshot.jd);
@@ -475,16 +639,80 @@ export const useApp = create<AppState>()(
         }));
         return true;
       },
-      saveApplication: (application) =>
+      saveApplication: (application, feedback = "") => {
+        const previous = get().applications.find(
+          (a) => a.id === application.id
+        );
+        if (!get().resumes.some((r) => r.id === application.resume_id))
+          return false;
+        if (
+          previous?.snapshot_id &&
+          hasSubmission(previous) &&
+          (previous.resume_id !== application.resume_id ||
+            previous.snapshot_id !== application.snapshot_id)
+        ) {
+          get().toast("warn", "已投递的版本已固定；再次投递请新增记录");
+          return false;
+        }
+        let snapshotId = application.snapshot_id;
+        if (
+          snapshotId &&
+          !get().snapshots.some(
+            (s) => s.id === snapshotId && s.resume_id === application.resume_id
+          )
+        )
+          return false;
+        if (hasSubmission(application) && !snapshotId)
+          snapshotId =
+            get().captureSnapshot(
+              application.resume_id,
+              `${application.company} · 投递版本`
+            ) ?? undefined;
+        if (hasSubmission(application) && !snapshotId) return false;
+        const now = nowISO();
+        const events = previous?.events
+          ? [...previous.events]
+          : previous
+          ? [
+              {
+                id: uid("event"),
+                status: previous.status,
+                at: previous.updated_at,
+                note: "旧记录当前状态，此前历史未知",
+                legacy: true,
+              },
+            ]
+          : [];
+        if (
+          !previous ||
+          previous.status !== application.status ||
+          feedback.trim()
+        )
+          events.push({
+            id: uid("event"),
+            status: application.status,
+            at: now,
+            note:
+              feedback.trim() || (!previous ? "创建投递记录" : "更新投递状态"),
+          });
+        if (events.length > 1000) {
+          get().toast("warn", "反馈记录已达上限，请先备份");
+          return false;
+        }
+        const next = {
+          ...application,
+          snapshot_id: snapshotId,
+          events,
+          created_at: previous?.created_at ?? application.created_at,
+          updated_at: now,
+        };
         set((s) => ({
-          applications: s.applications.some((a) => a.id === application.id)
-            ? s.applications.map((a) =>
-                a.id === application.id
-                  ? { ...application, updated_at: nowISO() }
-                  : a
-              )
-            : [{ ...application, updated_at: nowISO() }, ...s.applications],
-        })),
+          applications: previous
+            ? s.applications.map((a) => (a.id === next.id ? next : a))
+            : [next, ...s.applications],
+        }));
+        return true;
+      },
       deleteApplication: (id) =>
         set((s) => ({
           applications: s.applications.filter((a) => a.id !== id),
@@ -699,6 +927,19 @@ export const useApp = create<AppState>()(
         }
 
         const sel = selectProvider(st.models, st.privacy);
+        if (
+          sel.kind === "rules" &&
+          ["rewrite", "expand", "translate"].includes(action)
+        ) {
+          suggestionQueue = [];
+          queueEpoch++;
+          set({ queuedSuggestionCount: 0 });
+          get().toast(
+            "warn",
+            "该动作需要可用模型；本地规则只提供措辞精简和检查提示"
+          );
+          return;
+        }
 
         const jd = st.jds[resumeId];
         const execute = () => {
@@ -928,6 +1169,12 @@ export const useApp = create<AppState>()(
           sug.resolution
         )
           return false;
+        if (
+          blockContent(sug.original) === blockContent(edited ?? sug.suggested)
+        ) {
+          get().toast("info", "内容未变化，无需写入；可按检查提示补充真实事实");
+          return false;
+        }
         const current = get()
           .resumes.find((r) => r.id === sug.resume_id)
           ?.data.sections.find((s) => s.section_id === sug.section_id)
@@ -1034,7 +1281,7 @@ export const useApp = create<AppState>()(
           const jds = { ...s.jds };
           if (jd) jds[resumeId] = jd;
           else delete jds[resumeId];
-          return { jds };
+          return { ...withResume(s, resumeId, (r) => r), jds };
         }),
 
       saveModel: (m) =>
@@ -1190,7 +1437,9 @@ export const useApp = create<AppState>()(
       partialize: (s) => {
         let suggestions = persistedSuggestions.get(s.suggestions);
         if (!suggestions) {
-          suggestions = s.suggestions.filter((x) => x.status !== "generating");
+          suggestions = s.suggestions.some((x) => x.status === "generating")
+            ? s.suggestions.filter((x) => x.status !== "generating")
+            : s.suggestions;
           persistedSuggestions.set(s.suggestions, suggestions);
         }
         return {
@@ -1210,6 +1459,35 @@ export const useApp = create<AppState>()(
 );
 
 /** Subscribe only to fields this component uses. */
+export function saveAutomaticVersions() {
+  const state = useApp.getState();
+  for (const resume of state.resumes) {
+    if (resume.archived_at) continue;
+    const latest = state.snapshots.find((s) => s.resume_id === resume.id);
+    if (
+      !latest ||
+      resumeVersionContent(latest.resume) !== resumeVersionContent(resume) ||
+      JSON.stringify(latest.jd) !== JSON.stringify(state.jds[resume.id])
+    ) {
+      state.captureSnapshot(
+        resume.id,
+        latest ? "编辑自动保存" : "首次保存版本",
+        latest ? "auto" : "initial"
+      );
+    }
+  }
+}
+
+if (typeof window !== "undefined") {
+  let versionTimer: ReturnType<typeof setTimeout> | undefined;
+  useApp.subscribe((state, previous) => {
+    if (state.resumes === previous.resumes && state.jds === previous.jds)
+      return;
+    clearTimeout(versionTimer);
+    versionTimer = setTimeout(saveAutomaticVersions, 30_000);
+  });
+}
+
 export function useAppSlice<K extends keyof AppState>(
   ...keys: K[]
 ): Pick<AppState, K> {

@@ -12,7 +12,230 @@ const disk = vi.hoisted(() => {
   vi.stubGlobal("localStorage", storage);
   return storage;
 });
-import { useApp, flushSave } from "../store";
+import { useApp, flushSave, saveAutomaticVersions } from "../store";
+
+const applicationFixture = () => ({
+  id: "application_versions",
+  resume_id: "resume_test",
+  company: "测试公司",
+  role: "工程师",
+  url: "",
+  status: "applied" as const,
+  notes: "",
+  applied_at: "2026-10-14",
+  follow_up_at: "",
+  created_at: testResume().created_at,
+  updated_at: testResume().updated_at,
+});
+
+describe("版本与投递记录", () => {
+  it("选择主简历栏目更新保留岗位职位、未选内容和投递快照", () => {
+    const state = useApp.getState();
+    const job = state.createJobVersion(
+      "resume_test",
+      "公司",
+      "岗位职位",
+      "React"
+    )!;
+    state.saveApplication({ ...applicationFixture(), resume_id: job });
+    const snapshotId = useApp.getState().applications[0].snapshot_id;
+    state.patchBlock("resume_test", "section_test", "block_test", {
+      title: "主简历新经历",
+    });
+    state.patchBasic("resume_test", {
+      name: "主简历姓名",
+      title: "主简历目标",
+    });
+    expect(state.mergeSource(job, ["section_test"], false)).toBe(true);
+    let updated = useApp.getState().resumes.find((r) => r.id === job)!;
+    expect(updated.data.sections[0].blocks[0].title).toBe("主简历新经历");
+    expect(updated.data.basic_info.name).toBe("测试");
+    expect(state.mergeSource(job, [], true)).toBe(true);
+    updated = useApp.getState().resumes.find((r) => r.id === job)!;
+    expect(updated.data.basic_info.name).toBe("主简历姓名");
+    expect(updated.data.basic_info.title).toBe("岗位职位");
+    expect(
+      useApp.getState().snapshots.find((s) => s.id === snapshotId)?.resume.data
+        .sections[0].blocks[0].title
+    ).toBe("公司");
+    expect(
+      useApp
+        .getState()
+        .snapshots.some(
+          (s) => s.resume_id === job && s.label === "从主简历更新前保存"
+        )
+    ).toBe(true);
+  });
+  it("旧简历首次编辑前保留原始内容", () => {
+    useApp.getState().patchBasic("resume_test", { name: "新版姓名" });
+    expect(useApp.getState().snapshots[0].resume.data.basic_info.name).toBe(
+      "测试"
+    );
+    saveAutomaticVersions();
+    expect(useApp.getState().snapshots[0].resume.data.basic_info.name).toBe(
+      "新版姓名"
+    );
+  });
+  it("归档、反馈与岗位来源在合并恢复后保留正确关联", () => {
+    const state = useApp.getState();
+    const job = state.createJobVersion("resume_test", "公司", "岗位", "React")!;
+    state.saveApplication(
+      { ...applicationFixture(), resume_id: job },
+      "收到回复"
+    );
+    state.archiveResume(job, true);
+    const exported = createBackup(useApp.getState());
+    expect(state.importData(JSON.stringify(exported), "merge")).toBe(true);
+    const imported = useApp.getState().applications[0];
+    const resume = useApp
+      .getState()
+      .resumes.find((r) => r.id === imported.resume_id)!;
+    expect(resume.archived_at).toBeDefined();
+    expect(resume.target?.source_updated_at).toBeDefined();
+    expect(resume.target?.source_resume_id).not.toBe("resume_test");
+    expect(imported.events?.[0].note).toBe("收到回复");
+    expect(
+      useApp.getState().snapshots.find((s) => s.id === imported.snapshot_id)
+        ?.resume_id
+    ).toBe(imported.resume_id);
+  });
+  it("主简历、岗位简历和副本创建初始快照，独立编辑", () => {
+    const state = useApp.getState();
+    const id = state.createResume(testResume().data, "主简历");
+    const job = state.createJobVersion(id, "公司", "岗位", "React")!;
+    state.duplicateResume(job);
+    const resumes = useApp.getState().resumes;
+    for (const resumeId of [id, job, resumes[0].id])
+      expect(
+        useApp
+          .getState()
+          .snapshots.some(
+            (s) => s.resume_id === resumeId && s.kind === "initial"
+          )
+      ).toBe(true);
+    state.patchBasic(job, { name: "岗位姓名" });
+    expect(
+      useApp.getState().resumes.find((r) => r.id === id)?.data.basic_info.name
+    ).toBe("测试");
+    expect(
+      useApp.getState().resumes.find((r) => r.id === job)?.target
+        ?.source_updated_at
+    ).toBeDefined();
+  });
+  it("有变化才生成自动版本，并记录变更摘要", () => {
+    saveAutomaticVersions();
+    const count = useApp.getState().snapshots.length;
+    saveAutomaticVersions();
+    expect(useApp.getState().snapshots).toHaveLength(count);
+    useApp.getState().patchBasic("resume_test", { name: "更新姓名" });
+    saveAutomaticVersions();
+    expect(useApp.getState().snapshots[0].kind).toBe("auto");
+    expect(useApp.getState().snapshots[0].summary).toContain("基本信息");
+    saveAutomaticVersions();
+    expect(useApp.getState().snapshots).toHaveLength(count + 1);
+  });
+  it("实际投递固定快照，反馈追加且禁止改绑，包括回退到待投递后", () => {
+    const state = useApp.getState();
+    expect(state.saveApplication(applicationFixture())).toBe(true);
+    const original = useApp.getState().applications[0];
+    state.patchBasic("resume_test", { name: "后续修改" });
+    expect(
+      useApp.getState().snapshots.find((s) => s.id === original.snapshot_id)
+        ?.resume.data.basic_info.name
+    ).toBe("测试");
+    expect(
+      state.saveApplication({ ...original, status: "interview" }, "一面通知")
+    ).toBe(true);
+    const interviewing = useApp.getState().applications[0];
+    expect(interviewing.events?.map((e) => e.status)).toEqual([
+      "applied",
+      "interview",
+    ]);
+    expect(state.saveApplication({ ...interviewing, status: "saved" })).toBe(
+      true
+    );
+    expect(
+      state.saveApplication({
+        ...useApp.getState().applications[0],
+        snapshot_id: undefined,
+      })
+    ).toBe(false);
+    expect(useApp.getState().applications[0].snapshot_id).toBe(
+      original.snapshot_id
+    );
+  });
+  it("待投递和未投递的主动撤回不伪造投递快照", () => {
+    const state = useApp.getState();
+    expect(
+      state.saveApplication({
+        ...applicationFixture(),
+        applied_at: "",
+        status: "saved",
+      })
+    ).toBe(true);
+    expect(useApp.getState().applications[0].snapshot_id).toBeUndefined();
+    expect(
+      state.saveApplication({
+        ...useApp.getState().applications[0],
+        status: "withdrawn",
+      })
+    ).toBe(true);
+    expect(useApp.getState().applications[0].snapshot_id).toBeUndefined();
+  });
+  it("归档与恢复保留投递和快照，关联简历不能被硬删除", () => {
+    const state = useApp.getState();
+    state.saveApplication(applicationFixture());
+    const snapshot = useApp.getState().applications[0].snapshot_id;
+    state.deleteResume("resume_test");
+    expect(useApp.getState().resumes[0].archived_at).toBeDefined();
+    expect(useApp.getState().snapshots.some((s) => s.id === snapshot)).toBe(
+      true
+    );
+    expect(useApp.getState().applications).toHaveLength(1);
+    state.archiveResume("resume_test", false);
+    expect(useApp.getState().resumes[0].archived_at).toBeUndefined();
+  });
+  it("初始快照和投递快照不受近期20份上限清理", () => {
+    const state = useApp.getState();
+    saveAutomaticVersions();
+    const initial = useApp.getState().snapshots[0].id;
+    state.saveApplication(applicationFixture());
+    const linked = useApp.getState().applications[0].snapshot_id;
+    for (let i = 0; i < 25; i++)
+      state.captureSnapshot("resume_test", `编辑${i}`);
+    expect(useApp.getState().snapshots.some((s) => s.id === initial)).toBe(
+      true
+    );
+    expect(useApp.getState().snapshots.some((s) => s.id === linked)).toBe(true);
+    expect(useApp.getState().snapshots).toHaveLength(22);
+  });
+  it("拒绝其他简历快照，旧记录编辑不伪造此前反馈", () => {
+    const state = useApp.getState();
+    const other = state.createResume(testResume().data);
+    const foreign = useApp
+      .getState()
+      .snapshots.find((s) => s.resume_id === other)!.id;
+    expect(
+      state.saveApplication({ ...applicationFixture(), snapshot_id: foreign })
+    ).toBe(false);
+    useApp.setState({ applications: [applicationFixture()] });
+    expect(
+      state.saveApplication(
+        { ...applicationFixture(), status: "interview" },
+        "收到通知"
+      )
+    ).toBe(true);
+    expect(useApp.getState().applications[0].events?.[0].legacy).toBe(true);
+    expect(useApp.getState().applications[0].events?.[1].note).toBe("收到通知");
+    const restored = parseBackup(
+      JSON.stringify(createBackup(useApp.getState())),
+      []
+    );
+    expect(restored.applications![0].events).toEqual(
+      useApp.getState().applications[0].events
+    );
+  });
+});
 
 beforeEach(() => {
   vi.stubGlobal("localStorage", disk);
@@ -65,6 +288,14 @@ const success = () => {
 };
 
 describe("真实 store 的 AI 与恢复流程", () => {
+  it("无内容变化的检查提示不能标为已接受", () => {
+    success();
+    useApp.setState((s) => ({
+      suggestions: s.suggestions.map((x) => ({ ...x, suggested: x.original })),
+    }));
+    expect(useApp.getState().acceptSuggestion("suggestion_test")).toBe(false);
+    expect(useApp.getState().suggestions[0].resolution).toBeUndefined();
+  });
   it.each(["merge", "replace"] as const)(
     "%s 恢复清理待确认批量队列计数",
     (mode) => {
