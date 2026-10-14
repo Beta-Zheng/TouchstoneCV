@@ -1,7 +1,9 @@
 import type { FontKey, DensityKey, BulletStyleKey } from "../types";
 
 export function uid(prefix = "id"): string {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}_${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
 export function cx(...parts: Array<string | false | null | undefined>): string {
@@ -40,7 +42,10 @@ export function timeAgo(iso: string): string {
   return fmtDate(iso);
 }
 
-export function debounce<A extends unknown[]>(fn: (...args: A) => void, ms: number) {
+export function debounce<A extends unknown[]>(
+  fn: (...args: A) => void,
+  ms: number
+) {
   let t: ReturnType<typeof setTimeout> | null = null;
   return (...args: A) => {
     if (t) clearTimeout(t);
@@ -52,7 +57,11 @@ export function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }
 
-export function downloadText(filename: string, content: string, mime = "application/json") {
+export function downloadText(
+  filename: string,
+  content: string,
+  mime = "application/json"
+) {
   const blob = new Blob([content], { type: `${mime};charset=utf-8` });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -71,7 +80,10 @@ export function formatBytes(bytes: number): string {
 }
 
 /** 将图片文件读取为 base64 Data URL；超过 maxBytes 时拒绝 */
-export function fileToDataUrl(file: File, maxBytes = 2 * 1024 * 1024): Promise<string> {
+export function fileToDataUrl(
+  file: File,
+  maxBytes = 2 * 1024 * 1024
+): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
       reject(new Error("请选择图片文件"));
@@ -95,10 +107,15 @@ export type DiffOp = { kind: "same" | "add" | "del"; text: string };
 export function diffLines(a: string[], b: string[]): DiffOp[] {
   const n = a.length;
   const m = b.length;
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  const dp: number[][] = Array.from({ length: n + 1 }, () =>
+    new Array(m + 1).fill(0)
+  );
   for (let i = n - 1; i >= 0; i--) {
     for (let j = m - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      dp[i][j] =
+        a[i] === b[j]
+          ? dp[i + 1][j + 1] + 1
+          : Math.max(dp[i + 1][j], dp[i][j + 1]);
     }
   }
   const out: DiffOp[] = [];
@@ -125,25 +142,51 @@ export function diffLines(a: string[], b: string[]): DiffOp[] {
 /** 将简历内容压平为纯文本，用于 JD 匹配 */
 export function resumeToText(data: {
   basic_info: { name: string; title: string };
-  sections: Array<{ title: string; type?: string; visible?: boolean; blocks: Array<{ title: string; subtitle: string; description: string; bullets: string[]; skills: string[]; visible?: boolean }> }>;
+  sections: Array<{
+    title: string;
+    type?: string;
+    visible?: boolean;
+    blocks: Array<{
+      title: string;
+      subtitle: string;
+      description: string;
+      bullets: string[];
+      skills: string[];
+      visible?: boolean;
+    }>;
+  }>;
 }): string {
-  const parts: string[] = data.sections.find((s) => s.type === "basic_info")?.visible === false ? [] : [data.basic_info.name, data.basic_info.title];
+  const parts: string[] =
+    data.sections.find((s) => s.type === "basic_info")?.visible === false
+      ? []
+      : [data.basic_info.name, data.basic_info.title];
   for (const s of data.sections) {
     if (s.visible === false) continue;
     for (const b of s.blocks) {
       if (b.visible === false) continue;
-      parts.push(b.title, b.subtitle, stripHtml(b.description), ...b.bullets.map(stripHtml), ...b.skills);
+      parts.push(
+        b.title,
+        b.subtitle,
+        stripHtml(b.description),
+        ...b.bullets.map(stripHtml),
+        ...b.skills
+      );
     }
   }
   return parts.filter(Boolean).join("\n").toLowerCase();
 }
 
 const TERM_ALIASES: Record<string, string[]> = {
-  "node.js": ["node.js", "nodejs"], "nodejs": ["node.js", "nodejs"],
-  "next.js": ["next.js", "nextjs"], "nextjs": ["next.js", "nextjs"],
-  "go": ["go", "golang"], "golang": ["go", "golang"],
-  "postgres": ["postgres", "postgresql"], "postgresql": ["postgres", "postgresql"],
-  "k8s": ["k8s", "kubernetes"], "kubernetes": ["k8s", "kubernetes"],
+  "node.js": ["node.js", "nodejs"],
+  nodejs: ["node.js", "nodejs"],
+  "next.js": ["next.js", "nextjs"],
+  nextjs: ["next.js", "nextjs"],
+  go: ["go", "golang"],
+  golang: ["go", "golang"],
+  postgres: ["postgres", "postgresql"],
+  postgresql: ["postgres", "postgresql"],
+  k8s: ["k8s", "kubernetes"],
+  kubernetes: ["k8s", "kubernetes"],
 };
 
 /** Chinese phrases may be embedded in a sentence; Latin skills require token boundaries. */
@@ -154,8 +197,17 @@ export function containsTerm(text: string, term: string): boolean {
   return (TERM_ALIASES[needle] ?? [needle]).some((alias) => {
     if (/[\u4e00-\u9fff]/.test(alias)) return lower.includes(alias);
     const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(^|[^a-z0-9_+#])${escaped}($|[^a-z0-9_+#])`, "i").test(lower);
+    return new RegExp(`(^|[^a-z0-9_+#])${escaped}($|[^a-z0-9_+#])`, "i").test(
+      lower
+    );
   });
+}
+
+/** A version number alone is not evidence of scope, performance or business impact. */
+export function hasAchievementMetric(text: string): boolean {
+  return /(?:提升|提高|降(?:低|至)|下降|减少|缩短|增长|节省|覆盖|服务|达成|耗时|延迟|成本|准确率|召回率|缺陷率|reduc\w*|increas\w*|sav\w*|improv\w*|serv\w*|latency|accuracy)[^。；;\n]{0,30}\d+(?:\.\d+)?\s*(?:%|％|倍|人|用户|万|亿|秒|分钟|小时|天|ms|s\b|seconds?|minutes?|hours?|users?)/i.test(
+    stripHtml(text)
+  );
 }
 
 export function sleep(ms: number) {
@@ -168,7 +220,8 @@ export function sleep(ms: number) {
 export const FONT_STACKS: Record<FontKey, string> = {
   sans: '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif',
   serif: '"Noto Serif SC", "Songti SC", "SimSun", serif',
-  system: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+  system:
+    'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
   kai: '"Kaiti SC", "KaiTi", "楷体", serif',
   mono: '"JetBrains Mono", "SF Mono", "Fira Code", "Consolas", "Noto Sans SC", monospace',
   fangsong: '"FangSong SC", "FangSong", "仿宋", serif',
@@ -180,9 +233,33 @@ export function fontStack(key?: FontKey): string {
 
 /** 三种密度对应的 CSS 变量（间距 + 行高 + 页边距），便于一页简历调节篇幅 */
 export const DENSITY_VARS: Record<DensityKey, Record<string, string>> = {
-  compact: { "--sec-gap": "0.6rem", "--entry-gap": "0.3rem", "--bullet-gap": "0.14rem", "--lh": "1.42", "--head-gap": "0.4rem", "--page-pad-x": "2.6rem", "--page-pad-y": "2.2rem" },
-  medium: { "--sec-gap": "1rem", "--entry-gap": "0.55rem", "--bullet-gap": "0.28rem", "--lh": "1.6", "--head-gap": "0.7rem", "--page-pad-x": "3rem", "--page-pad-y": "2.75rem" },
-  loose: { "--sec-gap": "1.5rem", "--entry-gap": "0.9rem", "--bullet-gap": "0.45rem", "--lh": "1.78", "--head-gap": "1rem", "--page-pad-x": "3.4rem", "--page-pad-y": "3.2rem" },
+  compact: {
+    "--sec-gap": "0.6rem",
+    "--entry-gap": "0.3rem",
+    "--bullet-gap": "0.14rem",
+    "--lh": "1.42",
+    "--head-gap": "0.4rem",
+    "--page-pad-x": "2.6rem",
+    "--page-pad-y": "2.2rem",
+  },
+  medium: {
+    "--sec-gap": "1rem",
+    "--entry-gap": "0.55rem",
+    "--bullet-gap": "0.28rem",
+    "--lh": "1.6",
+    "--head-gap": "0.7rem",
+    "--page-pad-x": "3rem",
+    "--page-pad-y": "2.75rem",
+  },
+  loose: {
+    "--sec-gap": "1.5rem",
+    "--entry-gap": "0.9rem",
+    "--bullet-gap": "0.45rem",
+    "--lh": "1.78",
+    "--head-gap": "1rem",
+    "--page-pad-x": "3.4rem",
+    "--page-pad-y": "3.2rem",
+  },
 };
 
 export function densityVars(key?: DensityKey): Record<string, string> {
@@ -191,13 +268,19 @@ export function densityVars(key?: DensityKey): Record<string, string> {
 
 /** 解析某模块实际生效的要点列表样式：模块级设置 > 全局默认 > 菱形。
  *  编辑器与预览共用，保证「所见即所得」。 */
-export function resolveBulletStyle(sectionStyle?: BulletStyleKey, themeDefault?: BulletStyleKey): BulletStyleKey {
+export function resolveBulletStyle(
+  sectionStyle?: BulletStyleKey,
+  themeDefault?: BulletStyleKey
+): BulletStyleKey {
   return sectionStyle ?? themeDefault ?? "diamond";
 }
 
 /** 要点与「是否显示列表符号」勾选标记的配对视图：过滤空要点。
  *  marks 缺省 / 越界一律视为显示 —— 历史数据与 AI 生成内容无需迁移即默认全带符号。 */
-export function bulletPairs(bullets: string[], marks?: boolean[]): Array<{ text: string; marked: boolean }> {
+export function bulletPairs(
+  bullets: string[],
+  marks?: boolean[]
+): Array<{ text: string; marked: boolean }> {
   return bullets
     .map((text, i) => ({ text, marked: marks?.[i] ?? true }))
     .filter((p) => p.text);
@@ -235,8 +318,12 @@ export function sanitizeInline(html: string): string {
   // 形式存回（无字面 >），两种形态都要覆盖，否则标签剥离后垃圾文本仍会显示。
   const cleaned = html.replace(/"?child-style="[^"]*"?(?:&gt;|>)?/g, "");
   const allowed = /^(b|strong|i|em|u|br|span)$/i;
-  const blockUnwrap = /^(ul|ol|table|thead|tbody|tfoot|tr|h[1-6]|blockquote|pre|section|article|header|footer|figure)$/i;
-  const doc = new DOMParser().parseFromString(`<body>${cleaned}</body>`, "text/html");
+  const blockUnwrap =
+    /^(ul|ol|table|thead|tbody|tfoot|tr|h[1-6]|blockquote|pre|section|article|header|footer|figure)$/i;
+  const doc = new DOMParser().parseFromString(
+    `<body>${cleaned}</body>`,
+    "text/html"
+  );
   // ol 内 li 的序号计数：兄弟 li 会被陆续替换为文本节点（不再出现在 children 里），
   // 不能用 indexOf 现算 —— 必须在处理前按访问顺序递增计数
   const olCounters = new WeakMap<Element, number>();
@@ -247,7 +334,8 @@ export function sanitizeInline(html: string): string {
     let prev = node.previousSibling;
     while (prev) {
       if (prev.nodeType === 1) return true;
-      if (prev.nodeType === 3 && /[^\s]/.test(prev.textContent || "")) return true;
+      if (prev.nodeType === 3 && /[^\s]/.test(prev.textContent || ""))
+        return true;
       prev = prev.previousSibling;
     }
     return false;
@@ -263,7 +351,8 @@ export function sanitizeInline(html: string): string {
       }
       if (tag === "li" || tag === "p" || tag === "div") {
         const parent = child.parentElement;
-        const numbered = tag === "li" && parent && parent.tagName.toLowerCase() === "ol";
+        const numbered =
+          tag === "li" && parent && parent.tagName.toLowerCase() === "ol";
         let index = 0;
         if (numbered) {
           index = (olCounters.get(parent) ?? 0) + 1;
@@ -279,7 +368,8 @@ export function sanitizeInline(html: string): string {
       }
       transform(child);
       const frag = doc.createDocumentFragment();
-      if (blockUnwrap.test(tag) && hasMeaningfulPrev(child)) frag.appendChild(doc.createElement("br"));
+      if (blockUnwrap.test(tag) && hasMeaningfulPrev(child))
+        frag.appendChild(doc.createElement("br"));
       while (child.firstChild) frag.appendChild(child.firstChild);
       child.replaceWith(frag);
     });
@@ -303,7 +393,9 @@ export function prepEditorHtml(value: string): string {
   if (isRichHtml(trimmed)) return sanitizeInline(trimmed);
   return trimmed
     .split("**")
-    .map((seg, i) => (i % 2 === 1 && seg.length > 0 ? `<strong>${seg}</strong>` : seg))
+    .map((seg, i) =>
+      i % 2 === 1 && seg.length > 0 ? `<strong>${seg}</strong>` : seg
+    )
     .join("")
     .replace(/\r?\n/g, "<br>");
 }

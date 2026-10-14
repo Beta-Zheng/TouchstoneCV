@@ -32,6 +32,7 @@ import {
   qualificationEvidence,
 } from "../lib/jd";
 import { SAMPLE_JD_TEXT } from "../lib/samples";
+import { blockContent } from "../lib/backup";
 import { celebrate } from "../lib/celebrate";
 import { Btn, Empty, ScoreBar, ScoreRing } from "./ui";
 import {
@@ -47,6 +48,7 @@ import {
   IconX,
   IconAlert,
   IconLock,
+  IconPlus,
 } from "./icons";
 
 /* ================= 左侧大纲（可拖拽排序） ================= */
@@ -102,14 +104,6 @@ function OutlineItem({
       >
         <IconGrip size={14} />
       </button>
-      <span
-        className={cx(
-          "w-4 text-right font-mono text-[10px]",
-          active && section.visible ? "text-brand-500" : "text-ink-300"
-        )}
-      >
-        {section.order}
-      </span>
       <button
         type="button"
         onClick={scrollToSection}
@@ -142,9 +136,11 @@ function OutlineItem({
 export function OutlinePanel({
   resume,
   activeId,
+  onAdd,
 }: {
   resume: Resume;
   activeId?: string | null;
+  onAdd?: () => void;
 }) {
   const reorderSections = useApp((s) => s.reorderSections);
   const toast = useApp((s) => s.toast);
@@ -171,11 +167,18 @@ export function OutlinePanel({
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-3 pb-2 pt-3">
         <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-400">
-          模块大纲
+          栏目目录
         </h2>
-        <span className="chip bg-brand-50 font-mono text-[10px] text-brand-700 ring-1 ring-brand-200">
-          拖拽排序
-        </span>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="flex items-center gap-1 rounded px-2 py-1 text-[12px] text-ink-600 hover:bg-paper-200"
+          >
+            <IconPlus size={12} />
+            添加栏目
+          </button>
+        )}
       </div>
       <DndContext
         sensors={sensors}
@@ -429,16 +432,20 @@ export function AIPanel({
                 <p className="flex items-center gap-1.5 text-[11px] text-ink-400">
                   <span className="sp-dot" />
                   <IconLock size={11} />
-                  来源：{active.provider_name} · 不直接覆盖原文
+                  {active.engine === "rules" ? "规则检查" : "模型写作"}：
+                  {active.provider_name} · 不直接覆盖原文
                 </p>
 
                 {active.status === "generating" && (
                   <div className="flex flex-col gap-2 py-2">
-                    {[
-                      "构建 Prompt 与上下文",
-                      "调用模型生成",
-                      "JSON Schema 校验",
-                    ].map((step, i) => (
+                    {(active.engine === "rules"
+                      ? ["核对当前条目", "检查措辞与事实", "生成补充提示"]
+                      : [
+                          "构建 Prompt 与上下文",
+                          "调用模型生成",
+                          "JSON Schema 校验",
+                        ]
+                    ).map((step, i) => (
                       <div
                         key={step}
                         className="flex items-center gap-2 text-[12px] text-ink-500"
@@ -455,7 +462,9 @@ export function AIPanel({
                       </div>
                     ))}
                     <p className="mt-1 text-[11px] text-ink-300">
-                      本地模型较慢时可能需要数十秒，期间可继续编辑…
+                      {active.engine === "rules"
+                        ? "正在核对措辞与补充提示，原文保持不变…"
+                        : "模型较慢时可能需要数十秒，期间可继续编辑…"}
                     </p>
                     <Btn
                       variant="ghost"
@@ -494,6 +503,13 @@ export function AIPanel({
 
                 {active.status === "success" && active.suggested && (
                   <>
+                    {active.suggested &&
+                      blockContent(active.original) ===
+                        blockContent(active.suggested) && (
+                        <p className="rounded bg-paper-100 p-2 text-[12px]">
+                          原文无需改动；以下仅为检查提示，可编辑补充真实事实。
+                        </p>
+                      )}
                     {active.explanation && (
                       <p className="rounded-lg bg-paper-100 px-3 py-2 text-[12px] leading-relaxed text-ink-600">
                         {active.explanation}
@@ -619,6 +635,11 @@ export function AIPanel({
                           <>
                             <button
                               className="cta-ai flex h-8 items-center gap-1.5 rounded-md px-3 text-[12.5px] font-bold"
+                              disabled={
+                                !!active.suggested &&
+                                blockContent(active.original) ===
+                                  blockContent(active.suggested)
+                              }
                               onClick={() => accept(active)}
                             >
                               <IconCheck size={13} /> 接受
@@ -725,7 +746,8 @@ export function AIPanel({
       {active && (
         <div className="border-t border-line px-4 py-2.5">
           <p className="flex items-center gap-1.5 text-[10.5px] text-ink-400">
-            <span className="sp-dot" /> AI 建议由模型生成 · 确认前不会改动原文
+            <span className="sp-dot" /> 规则检查与模型写作分别标注 ·
+            确认前不会改动原文
           </p>
         </div>
       )}
@@ -817,8 +839,6 @@ export function JDPanel({
     if (!jd) return;
     const r = matchResumeData(resume.data, jd);
     setAnalysis({ report: r, data: resume.data, jd });
-    // 高分匹配值得庆祝（celebrate 自带 reduced-motion 降级）
-    if (r.overall_score >= 75) celebrate();
   };
 
   if (!jd || editingJD) {
@@ -1001,27 +1021,32 @@ export function JDPanel({
           </div>
         ) : (
           <div className="anim-fade-up flex flex-col gap-3">
-            <div className="flex items-center gap-4 rounded-xl border border-ink-200 bg-white p-3.5">
-              <ScoreRing score={report.overall_score} label="综合匹配" />
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
-                <ScoreBar label="技能匹配" score={report.skill_match_score} />
-                <ScoreBar
-                  label="关键词覆盖"
-                  score={report.keyword_coverage_score}
-                />
-                <ScoreBar
-                  label="经历相关性"
-                  score={report.experience_relevance_score}
-                />
-                <ScoreBar
-                  label="表达质量"
-                  score={report.writing_quality_score}
-                />
+            <details className="rounded-xl border border-ink-200 bg-white p-3.5">
+              <summary className="cursor-pointer text-[12px]">
+                查看规则数值（不代表岗位胜任度）
+              </summary>
+              <div className="mt-3 flex items-center gap-4">
+                <ScoreRing score={report.overall_score} label="词项覆盖参考" />
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <ScoreBar label="技能匹配" score={report.skill_match_score} />
+                  <ScoreBar
+                    label="关键词覆盖"
+                    score={report.keyword_coverage_score}
+                  />
+                  <ScoreBar
+                    label="要求词元覆盖"
+                    score={report.experience_relevance_score}
+                  />
+                  <ScoreBar
+                    label="成果表述检查"
+                    score={report.writing_quality_score}
+                  />
+                </div>
               </div>
-            </div>
+            </details>
             <p className="text-[10px] text-ink-400">
-              综合分：技能 35% + 关键词 25% + 经历词元 25% + 表达规则
-              15%。词频与句长仅提供参考。
+              兼容参考值：技能 35% + 关键词 25% + 经历词元 25% + 表达规则
+              15%。该权重未经招聘结果验证，优先核对上方证据。
             </p>
 
             {report.missing_skills.length > 0 && (

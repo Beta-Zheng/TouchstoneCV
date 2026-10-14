@@ -5,6 +5,13 @@
 
 export type SourceKind = "file" | "pasted_text" | "empty" | "sample";
 
+export const AUDIENCE_LABELS = {
+  student: "校招",
+  internship: "实习",
+  experienced: "社招",
+} as const;
+export type ResumeAudience = keyof typeof AUDIENCE_LABELS;
+
 export type SectionType =
   | "basic_info"
   | "summary"
@@ -70,7 +77,13 @@ export interface Section {
 export interface ResumeData {
   basic_info: BasicInfo;
   sections: Section[]; // 渲染按 order 升序，再过滤 visible=false
-  metadata: { source: SourceKind; source_name?: string; created_at: string; source_text?: string; reviewed_at?: string };
+  metadata: {
+    source: SourceKind;
+    source_name?: string;
+    created_at: string;
+    source_text?: string;
+    reviewed_at?: string;
+  };
   /** 个人头像（base64 或外链），仅部分模板展示 */
   avatar_url?: string;
   /** 学校/机构徽标（base64 或外链），仅部分模板展示 */
@@ -80,10 +93,21 @@ export interface ResumeData {
 export type FontKey = "sans" | "serif" | "system" | "kai" | "mono" | "fangsong";
 export type DensityKey = "compact" | "medium" | "loose";
 export type HeaderLayoutKey = "row" | "stack";
-export type BulletStyleKey = "disc" | "diamond" | "arrow" | "ordered" | "square" | "check" | "circle";
+export type BulletStyleKey =
+  | "disc"
+  | "diamond"
+  | "arrow"
+  | "ordered"
+  | "square"
+  | "check"
+  | "circle";
 
 /** 要点列表可选样式（编辑器与预览共用一份定义，避免两处不一致） */
-export const BULLET_STYLE_OPTIONS: Array<{ key: BulletStyleKey; label: string; sample: string }> = [
+export const BULLET_STYLE_OPTIONS: Array<{
+  key: BulletStyleKey;
+  label: string;
+  sample: string;
+}> = [
   { key: "diamond", label: "菱形", sample: "◆" },
   { key: "disc", label: "圆点", sample: "●" },
   { key: "square", label: "方块", sample: "▪" },
@@ -94,7 +118,13 @@ export const BULLET_STYLE_OPTIONS: Array<{ key: BulletStyleKey; label: string; s
 ];
 
 /** 支持要点列表的模块类型（其余模块不展示要点样式开关） */
-export const BULLET_CAPABLE_SECTIONS: SectionType[] = ["work_experience", "project_experience", "education", "custom", "summary"];
+export const BULLET_CAPABLE_SECTIONS: SectionType[] = [
+  "work_experience",
+  "project_experience",
+  "education",
+  "custom",
+  "summary",
+];
 
 export interface Resume {
   id: string;
@@ -118,21 +148,42 @@ export interface Resume {
   created_at: string;
   updated_at: string;
   locale?: "zh" | "en";
-  audience?: "student" | "experienced" | "career_change";
-  target?: { company: string; job_title: string; source_resume_id?: string };
+  audience?: ResumeAudience;
+  archived_at?: string;
+  target?: {
+    company: string;
+    job_title: string;
+    source_resume_id?: string;
+    source_updated_at?: string;
+  };
 }
 
 export interface ResumeSnapshot {
   id: string;
   resume_id: string;
   label: string;
-  kind: "manual" | "export";
+  kind: "initial" | "auto" | "manual" | "export";
+  summary?: string;
   created_at: string;
   resume: Resume;
   jd?: JD;
 }
 
-export type ApplicationStatus = "saved" | "applied" | "interview" | "offer" | "rejected";
+export type ApplicationStatus =
+  | "saved"
+  | "applied"
+  | "interview"
+  | "offer"
+  | "rejected"
+  | "withdrawn"
+  | "closed";
+export interface ApplicationEvent {
+  id: string;
+  status: ApplicationStatus;
+  at: string;
+  note: string;
+  legacy?: boolean;
+}
 export interface Application {
   id: string;
   resume_id: string;
@@ -146,6 +197,7 @@ export interface Application {
   follow_up_at: string;
   created_at: string;
   updated_at: string;
+  events?: ApplicationEvent[];
 }
 
 export interface CoverLetter {
@@ -158,8 +210,14 @@ export interface CoverLetter {
 }
 
 export const EN_SECTION_LABELS: Record<SectionType, string> = {
-  basic_info: "Contact", summary: "Summary", work_experience: "Experience", project_experience: "Projects",
-  education: "Education", skills: "Skills", certifications: "Certifications & Awards", custom: "Additional Information",
+  basic_info: "Contact",
+  summary: "Summary",
+  work_experience: "Experience",
+  project_experience: "Projects",
+  education: "Education",
+  skills: "Skills",
+  certifications: "Certifications & Awards",
+  custom: "Additional Information",
 };
 
 /* ---------------- JD（§6 FR-06） ---------------- */
@@ -198,7 +256,10 @@ export interface MatchReport {
 
 export type ModelType = "local" | "external" | "private";
 export type ModelProtocol = "ollama" | "openai_compatible";
-export type RouteStrategy = "local_first" | "local_only" | "ask_before_external";
+export type RouteStrategy =
+  | "local_first"
+  | "local_only"
+  | "ask_before_external";
 
 export interface ModelProvider {
   id: string;
@@ -223,6 +284,7 @@ export type AIAction =
   | "quantify"
   | "shorten"
   | "expand"
+  | "translate"
   | "jd_match"
   | "ats_optimize";
 
@@ -264,31 +326,39 @@ export const TEMPLATES: TemplateConfig[] = [
     template_id: "modern_single_column",
     name: "现代单栏",
     layout: "single_column",
-    description: "衬线姓名 + 主题色模块线，适合多数岗位",
+    description: "彩色标题 · 单栏布局",
   },
   {
     template_id: "classic_ats",
     name: "经典 ATS",
     layout: "ats",
-    description: "纯黑白、标准标题、无表格，过筛率优先",
+    description: "黑白单栏 · 标准标题",
   },
   {
     template_id: "academic_photo",
     name: "学术双栏",
     layout: "photo_header",
-    description: "头像 + 校徽头区 + 图标模块标题，适合应届/学术简历",
+    description: "头像页眉 · 双栏布局",
   },
 ];
 
-export const ACTION_LABELS: Record<AIAction, { label: string; hint: string }> = {
-  polish: { label: "润色", hint: "保留事实，让表达更专业、结果导向" },
-  rewrite: { label: "改写", hint: "重组句式：动词开头 + 内容 + 成果" },
-  quantify: { label: "量化建议", hint: "指出可以补充数字指标的位置" },
-  shorten: { label: "缩短", hint: "删冗词，单句控制在一行内" },
-  expand: { label: "扩写", hint: "按 背景/方案/结果 补充结构提示" },
-  jd_match: { label: "JD 对齐", hint: "向目标岗位关键词靠拢（不编造）" },
-  ats_optimize: { label: "ATS 优化", hint: "标准动词开头、去符号、关键词前置" },
-};
+export const ACTION_LABELS: Record<AIAction, { label: string; hint: string }> =
+  {
+    translate: {
+      label: "英文翻译",
+      hint: "需模型：翻译当前条目，保留原有事实与数字",
+    },
+    polish: { label: "润色", hint: "保留事实，让表达更专业、结果导向" },
+    rewrite: { label: "改写", hint: "重组句式：动词开头 + 内容 + 成果" },
+    quantify: { label: "量化建议", hint: "指出可以补充数字指标的位置" },
+    shorten: { label: "缩短", hint: "删冗词，单句控制在一行内" },
+    expand: { label: "扩写", hint: "按 背景/方案/结果 补充结构提示" },
+    jd_match: { label: "JD 对齐", hint: "向目标岗位关键词靠拢（不编造）" },
+    ats_optimize: {
+      label: "ATS 优化",
+      hint: "标准动词开头、去符号、关键词前置",
+    },
+  };
 
 export const SECTION_LABELS: Record<SectionType, string> = {
   basic_info: "基本信息",

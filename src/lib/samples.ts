@@ -1,4 +1,4 @@
-import type { ResumeData, Section } from "../types";
+import type { ResumeAudience, ResumeData, Section } from "../types";
 import { uid, nowISO } from "./utils";
 
 /**
@@ -31,7 +31,7 @@ interface Identity {
 
 function pickIdentity(): Identity {
   const pick = NAME_POOL[Math.floor(Math.random() * NAME_POOL.length)];
-  const phone = `1${["38", "39", "58", "66", "77"][Math.floor(Math.random() * 5)]}-${String(1000 + Math.floor(Math.random() * 9000))}-${String(1000 + Math.floor(Math.random() * 9000))}`;
+  const phone = "138-XXXX-XXXX";
   return { name: pick.name, email: pick.email, phone };
 }
 
@@ -55,7 +55,11 @@ function blk(type: import("../types").BlockType) {
   };
 }
 
-const b = (partial: Partial<ReturnType<typeof blk>> & { type: ReturnType<typeof blk>["type"] }) => ({
+const b = (
+  partial: Partial<ReturnType<typeof blk>> & {
+    type: ReturnType<typeof blk>["type"];
+  }
+) => ({
   ...blk(partial.type),
   ...partial,
 });
@@ -71,7 +75,14 @@ function assembleSections(parts: {
   certs: { title: string; year: string }[];
 }): Section[] {
   return [
-    { section_id: "basic_info", type: "basic_info", title: "基本信息", visible: true, order: 0, blocks: [] },
+    {
+      section_id: "basic_info",
+      type: "basic_info",
+      title: "基本信息",
+      visible: true,
+      order: 0,
+      blocks: [],
+    },
     {
       section_id: "summary",
       type: "summary",
@@ -118,7 +129,11 @@ function assembleSections(parts: {
       title: "技能",
       visible: true,
       order: 5,
-      blocks: parts.skills.map((s) => ({ ...blk("skill_group"), title: s.group, skills: s.items })),
+      blocks: parts.skills.map((s) => ({
+        ...blk("skill_group"),
+        title: s.group,
+        skills: s.items,
+      })),
     },
     {
       section_id: "certifications",
@@ -126,14 +141,18 @@ function assembleSections(parts: {
       title: "证书奖项",
       visible: true,
       order: 6,
-      blocks: parts.certs.map((c) => b({ type: "certification", title: c.title, start_date: c.year })),
+      blocks: parts.certs.map((c) =>
+        b({ type: "certification", title: c.title, start_date: c.year })
+      ),
     },
   ];
 }
 
 /* ---------------- 档案一：AI 应用工程师（大模型方向） ---------------- */
 
-function profileAI(_: Identity): Pick<ResumeData, "sections"> & { roleTitle: string; location: string } {
+function profileAI(
+  _: Identity
+): Pick<ResumeData, "sections"> & { roleTitle: string; location: string } {
   return {
     roleTitle: "AI 应用工程师 · 大模型方向",
     location: "北京",
@@ -199,10 +218,36 @@ function profileAI(_: Identity): Pick<ResumeData, "sections"> & { roleTitle: str
           skills: ["LoRA", "SFT", "LLaMA-Factory", "DeepSpeed", "Python"],
         }),
       ],
-      education: { school: "北京邮电大学", major: "自动化 · 本科", start: "2014-09", end: "2018-06" },
+      education: {
+        school: "北京邮电大学",
+        major: "自动化 · 本科",
+        start: "2014-09",
+        end: "2018-06",
+      },
       skills: [
-        { group: "大模型应用", items: ["Prompt 工程", "RAG", "Agent 编排", "SFT/LoRA 微调", "RAGAS 评测", "模型部署"] },
-        { group: "工程与其他", items: ["Python", "TypeScript", "LangChain", "vLLM", "Milvus", "FastAPI", "Docker/K8s"] },
+        {
+          group: "大模型应用",
+          items: [
+            "Prompt 工程",
+            "RAG",
+            "Agent 编排",
+            "SFT/LoRA 微调",
+            "RAGAS 评测",
+            "模型部署",
+          ],
+        },
+        {
+          group: "工程与其他",
+          items: [
+            "Python",
+            "TypeScript",
+            "LangChain",
+            "vLLM",
+            "Milvus",
+            "FastAPI",
+            "Docker/K8s",
+          ],
+        },
       ],
       certs: [
         { title: "云阙智能年度技术之星", year: "2023" },
@@ -214,7 +259,9 @@ function profileAI(_: Identity): Pick<ResumeData, "sections"> & { roleTitle: str
 
 /* ---------------- 档案二：高级前端工程师 ---------------- */
 
-function profileFrontend(_: Identity): Pick<ResumeData, "sections"> & { roleTitle: string; location: string } {
+function profileFrontend(
+  _: Identity
+): Pick<ResumeData, "sections"> & { roleTitle: string; location: string } {
   return {
     roleTitle: "高级前端工程师",
     location: "杭州",
@@ -280,10 +327,21 @@ function profileFrontend(_: Identity): Pick<ResumeData, "sections"> & { roleTitl
           skills: ["WebSocket", "IndexedDB", "Yjs"],
         }),
       ],
-      education: { school: "北京邮电大学", major: "计算机科学与技术 · 本科", start: "2014-09", end: "2018-06" },
+      education: {
+        school: "北京邮电大学",
+        major: "计算机科学与技术 · 本科",
+        start: "2014-09",
+        end: "2018-06",
+      },
       skills: [
-        { group: "核心技术", items: ["React", "TypeScript", "Vue", "Node.js", "Webpack", "Vite"] },
-        { group: "工程与其他", items: ["微前端", "性能优化", "前端监控", "CI/CD", "Docker", "MySQL"] },
+        {
+          group: "核心技术",
+          items: ["React", "TypeScript", "Vue", "Node.js", "Webpack", "Vite"],
+        },
+        {
+          group: "工程与其他",
+          items: ["微前端", "性能优化", "前端监控", "CI/CD", "Docker", "MySQL"],
+        },
       ],
       certs: [
         { title: "星澜互动年度技术突破奖", year: "2023" },
@@ -295,7 +353,9 @@ function profileFrontend(_: Identity): Pick<ResumeData, "sections"> & { roleTitl
 
 /* ---------------- 档案三：数据分析师（增长方向） ---------------- */
 
-function profileData(_: Identity): Pick<ResumeData, "sections"> & { roleTitle: string; location: string } {
+function profileData(
+  _: Identity
+): Pick<ResumeData, "sections"> & { roleTitle: string; location: string } {
   return {
     roleTitle: "数据分析师 · 增长方向",
     location: "上海",
@@ -360,14 +420,42 @@ function profileData(_: Identity): Pick<ResumeData, "sections"> & { roleTitle: s
           skills: ["马尔可夫链", "归因分析", "Hive", "Pandas"],
         }),
       ],
-      education: { school: "北京邮电大学", major: "信息与计算科学 · 本科", start: "2015-09", end: "2019-06" },
+      education: {
+        school: "北京邮电大学",
+        major: "信息与计算科学 · 本科",
+        start: "2015-09",
+        end: "2019-06",
+      },
       skills: [
-        { group: "分析方法", items: ["A/B 实验设计", "归因分析", "用户分层", "留存建模", "因果推断"] },
-        { group: "工具", items: ["SQL", "Python", "Pandas", "XGBoost", "Hive", "Tableau", "Looker"] },
+        {
+          group: "分析方法",
+          items: [
+            "A/B 实验设计",
+            "归因分析",
+            "用户分层",
+            "留存建模",
+            "因果推断",
+          ],
+        },
+        {
+          group: "工具",
+          items: [
+            "SQL",
+            "Python",
+            "Pandas",
+            "XGBoost",
+            "Hive",
+            "Tableau",
+            "Looker",
+          ],
+        },
       ],
       certs: [
         { title: "澜舟零售年度最佳分析案例", year: "2022" },
-        { title: "Google Data Analytics Professional Certificate", year: "2020" },
+        {
+          title: "Google Data Analytics Professional Certificate",
+          year: "2020",
+        },
       ],
     }),
   };
@@ -379,18 +467,54 @@ const PROFILES = [profileAI, profileFrontend, profileData];
 
 /** 每次调用：随机身份 × 随机档案 → 一份完整示例简历 */
 export type SampleKind = "ai" | "frontend" | "data";
-export function buildSampleResume(kind?: SampleKind, audience: "student" | "experienced" | "career_change" = "experienced"): ResumeData {
+export function buildSampleResume(
+  kind?: SampleKind,
+  audience: ResumeAudience = "experienced"
+): ResumeData {
   const who = pickIdentity();
-  const factory = kind ? { ai: profileAI, frontend: profileFrontend, data: profileData }[kind] : PROFILES[Math.floor(Math.random() * PROFILES.length)];
+  const factory = kind
+    ? { ai: profileAI, frontend: profileFrontend, data: profileData }[kind]
+    : PROFILES[Math.floor(Math.random() * PROFILES.length)];
   const profile = factory(who);
-  if (audience === "student") {
-    profile.sections = profile.sections.filter((s) => s.type !== "work_experience" && s.type !== "certifications");
+  if (audience === "student" || audience === "internship") {
+    profile.sections = profile.sections.filter(
+      (s) => s.type !== "work_experience" && s.type !== "certifications"
+    );
     const summary = profile.sections.find((s) => s.type === "summary");
-    if (summary) summary.blocks.forEach((b) => { b.description = "应届毕业生，以下项目为虚构示例，请替换为自己的课程、实习或项目经历。"; b.bullets = []; });
-  }
-  if (audience === "career_change") {
-    const summary = profile.sections.find((s) => s.type === "summary");
-    if (summary) summary.blocks.forEach((b) => { b.description = "希望转向该岗位，请在此说明可迁移能力，并用真实经历支持。以下内容仅为虚构示例。"; b.bullets = []; });
+    if (summary)
+      summary.blocks.forEach((b) => {
+        b.title = "";
+        b.description =
+          audience === "internship"
+            ? "在校生，正在寻找实习机会。以下课程项目为虚构示例，请替换为自己的真实经历。"
+            : "应届毕业生，通过课程与项目实践积累岗位相关能力。以下内容为虚构示例，请替换为自己的真实经历。";
+        b.bullets = [];
+      });
+    profile.roleTitle =
+      profile.roleTitle.replace(/高级|资深/g, "").replace(/ ·.*$/, "") +
+      (audience === "internship" ? "实习生" : "");
+    const projects = profile.sections.find(
+      (s) => s.type === "project_experience"
+    );
+    projects?.blocks.forEach((block, index) => {
+      block.title = `课程实践：${block.title}`;
+      block.subtitle = "项目成员";
+      block.start_date = index === 0 ? "2025-09" : "2025-03";
+      block.end_date = index === 0 ? "2025-12" : "2025-06";
+      block.description = "";
+      block.bullets = [
+        "参与需求拆解与原型实现，完成分配的功能模块。",
+        "整理测试用例并修复问题，记录实践过程与学习成果。",
+      ];
+    });
+    const education = profile.sections.find((s) => s.type === "education");
+    education?.blocks.forEach((block) => {
+      block.start_date = "2023-09";
+      block.end_date = audience === "internship" ? "至今" : "2027-06（预计）";
+    });
+    profile.sections.forEach((section, index) => {
+      section.order = index;
+    });
   }
   return {
     basic_info: {
