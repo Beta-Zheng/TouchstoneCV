@@ -98,16 +98,22 @@ export default function ExportDialog({
     <Modal open onClose={onClose} width="max-w-6xl" bare>
       <ModalHeader
         title="检查并导出"
-        sub="PDF 按下方分页输出；DOCX 使用可编辑单栏布局。导出准备会保留快照，打印关闭不代表已保存文件。"
+        sub="PDF 保留下方分页；Word 为可编辑单栏。"
         onClose={onClose}
       />
       <div className="grid max-h-[65vh] grid-cols-1 overflow-y-auto lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="border-b border-line p-4 lg:border-r">
           <h4 className="mb-2 text-[13px] font-bold">投递前检查</h4>
-          <p className="mb-3 text-[11px] text-ink-500">
-            PDF 建议使用 A4、100% 缩放、关闭页眉页脚并开启背景图形。Word
-            采用单栏内容布局，分页会随字体环境变化。
-          </p>
+          <details className="mb-3 text-[12px] text-ink-500">
+            <summary className="cursor-pointer">打印与格式说明</summary>
+            <p className="mt-2">
+              PDF 建议使用 A4、100% 缩放、关闭页眉页脚并开启背景图形。Word
+              采用单栏内容布局，分页会随字体环境变化。
+            </p>
+            <p className="mt-2">
+              导出准备会保留快照，关闭打印窗口不代表文件已保存。
+            </p>
+          </details>
           {issues.length ? (
             <ul className="space-y-2">
               {issues.map((issue) => (

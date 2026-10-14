@@ -326,19 +326,19 @@ export const TEMPLATES: TemplateConfig[] = [
     template_id: "modern_single_column",
     name: "现代单栏",
     layout: "single_column",
-    description: "衬线姓名 + 主题色模块线，适合多数岗位",
+    description: "彩色标题 · 单栏布局",
   },
   {
     template_id: "classic_ats",
     name: "经典 ATS",
     layout: "ats",
-    description: "纯黑白、标准标题、无表格，过筛率优先",
+    description: "黑白单栏 · 标准标题",
   },
   {
     template_id: "academic_photo",
     name: "学术双栏",
     layout: "photo_header",
-    description: "头像 + 校徽头区 + 图标模块标题，适合应届/学术简历",
+    description: "头像页眉 · 双栏布局",
   },
 ];
 

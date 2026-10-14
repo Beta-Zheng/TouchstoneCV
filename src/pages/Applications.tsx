@@ -279,10 +279,7 @@ export default function Applications() {
     <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-bold">投递记录</h1>
-          <p className="mt-2 text-[13px] text-ink-500">
-            关联岗位、简历快照与跟进日期。这里记录进度，不会自动投递或发送邮件。
-          </p>
+          <h1 className="text-[28px] font-semibold tracking-tight">投递记录</h1>
         </div>
         <Btn
           variant="primary"
@@ -292,104 +289,108 @@ export default function Applications() {
           新增记录
         </Btn>
       </div>
-      <p className="mt-4 text-[12px] text-ink-500">
-        以下为全部手动记录的统计，无反馈不代表拒绝；面试与 Offer
-        按明确记录计数，缺失历史不推断。
-      </p>
-      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="my-5 grid grid-cols-2 gap-3 border-y border-line py-4 lg:grid-cols-4">
         {[
           ["已投递", stats.submitted],
           ["有面试记录", stats.interviews],
           ["收到 Offer", stats.offers],
           ["待跟进", stats.followups],
         ].map(([label, count]) => (
-          <div
-            key={label}
-            className="rounded-xl border border-line bg-surface p-4"
-          >
-            <p className="text-[12px] text-ink-500">{label}</p>
+          <div key={label} className="px-3">
+            <p className="text-[13px] text-ink-500">{label}</p>
             <p className="mt-1 text-2xl font-bold">{count}</p>
           </div>
         ))}
       </div>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <section
-          className="rounded-xl border border-line p-4"
-          aria-label="投递状态分布"
-        >
-          <h2 className="mb-3 text-[13px] font-bold">当前状态分布</h2>
-          {Object.entries(APPLICATION_LABELS).map(([key, label]) => (
-            <div
-              key={key}
-              className="mb-2 grid grid-cols-[90px_1fr_24px] items-center gap-2 text-[12px]"
-            >
-              <span>{label}</span>
-              <div className="h-2 rounded bg-paper-100">
-                <div
-                  className="h-2 rounded bg-brand-400"
-                  style={{
-                    width: `${
-                      app.applications.length
-                        ? (stats.counts[key as ApplicationStatus] /
-                            app.applications.length) *
-                          100
-                        : 0
-                    }%`,
-                  }}
-                />
-              </div>
-              <span>{stats.counts[key as ApplicationStatus]}</span>
-            </div>
-          ))}
-        </section>
-        <section
-          className="rounded-xl border border-line p-4"
-          aria-label="最近八周投递趋势"
-        >
-          <h2 className="text-[13px] font-bold">最近八周投递趋势</h2>
-          <p className="mt-1 text-[11px] text-ink-500">
-            按填写的投递日期统计；缺日期的记录不计入趋势。
-          </p>
-          <div className="mt-3 flex h-40 items-end gap-2">
-            {stats.weeks.map((week) => (
+      <details className="mb-5 rounded-xl border border-line bg-surface p-4">
+        <summary className="cursor-pointer text-[14px] font-medium">
+          查看投递统计
+        </summary>
+        <p className="mt-3 text-[12px] text-ink-500">
+          统计依据手动记录，缺失历史不推断；无反馈不代表拒绝。
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <section
+            className="rounded-xl border border-line p-4"
+            aria-label="投递状态分布"
+          >
+            <h2 className="mb-3 text-[13px] font-bold">当前状态分布</h2>
+            {Object.entries(APPLICATION_LABELS).map(([key, label]) => (
               <div
-                key={week.from}
-                className="flex min-w-0 flex-1 flex-col items-center gap-1 text-[10px]"
-                title={`${week.from} 至 ${week.to}：${week.count} 次`}
+                key={key}
+                className="mb-2 grid grid-cols-[90px_1fr_24px] items-center gap-2 text-[12px]"
               >
-                <span>{week.count}</span>
-                <div
-                  className="w-full rounded-t bg-brand-400"
-                  style={{
-                    height: `${
-                      week.count
-                        ? Math.max(
-                            6,
-                            (week.count /
-                              Math.max(1, ...stats.weeks.map((w) => w.count))) *
-                              100
-                          )
-                        : 2
-                    }px`,
-                  }}
-                />
-                <span>{week.from.slice(5)}</span>
+                <span>{label}</span>
+                <div className="h-2 rounded bg-paper-100">
+                  <div
+                    className="h-2 rounded bg-brand-400"
+                    style={{
+                      width: `${
+                        app.applications.length
+                          ? (stats.counts[key as ApplicationStatus] /
+                              app.applications.length) *
+                            100
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+                <span>{stats.counts[key as ApplicationStatus]}</span>
               </div>
             ))}
-          </div>
-          <p className="mt-2 text-[12px] text-ink-500">
-            已记录面试比例：
-            {stats.submitted
-              ? Math.round((stats.interviews / stats.submitted) * 100)
-              : 0}
-            % · Offer 比例：
-            {stats.submitted
-              ? Math.round((stats.offers / stats.submitted) * 100)
-              : 0}
-            %
-          </p>
-        </section>
-      </div>
+          </section>
+          <section
+            className="rounded-xl border border-line p-4"
+            aria-label="最近八周投递趋势"
+          >
+            <h2 className="text-[13px] font-bold">最近八周投递趋势</h2>
+            <p className="mt-1 text-[11px] text-ink-500">
+              按填写的投递日期统计；缺日期的记录不计入趋势。
+            </p>
+            <div className="mt-3 flex h-40 items-end gap-2">
+              {stats.weeks.map((week) => (
+                <div
+                  key={week.from}
+                  className="flex min-w-0 flex-1 flex-col items-center gap-1 text-[10px]"
+                  title={`${week.from} 至 ${week.to}：${week.count} 次`}
+                >
+                  <span>{week.count}</span>
+                  <div
+                    className="w-full rounded-t bg-brand-400"
+                    style={{
+                      height: `${
+                        week.count
+                          ? Math.max(
+                              6,
+                              (week.count /
+                                Math.max(
+                                  1,
+                                  ...stats.weeks.map((w) => w.count)
+                                )) *
+                                100
+                            )
+                          : 2
+                      }px`,
+                    }}
+                  />
+                  <span>{week.from.slice(5)}</span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-[12px] text-ink-500">
+              已记录面试比例：
+              {stats.submitted
+                ? Math.round((stats.interviews / stats.submitted) * 100)
+                : 0}
+              % · Offer 比例：
+              {stats.submitted
+                ? Math.round((stats.offers / stats.submitted) * 100)
+                : 0}
+              %
+            </p>
+          </section>
+        </div>
+      </details>
       <div className="my-5 flex gap-3">
         <input
           aria-label="搜索投递记录"

@@ -2,158 +2,97 @@
 
 # TouchstoneCV · 本地 AI 简历工作台
 
-**把一份旧简历，变成一份打得准的新简历 —— 全程在你的浏览器里完成，数据不出本机。**
+**创建、编辑、定制简历，记录投递进度。默认本机保存，外部模型逐次确认。**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-534AB7.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF.svg)](https://vite.dev)
-[![Local-first](https://img.shields.io/badge/local--first-100%25%20in--browser-0F6E56.svg)](#-隐私与安全)
 
-[▶ 在线体验 Live Demo](https://beta-zheng.github.io/TouchstoneCV/) · [下载使用](#-快速开始) · [使用指南](#-使用指南) · [常见问题](#-常见问题)
+[在线体验](https://beta-zheng.github.io/TouchstoneCV/) · [使用指南](#使用指南) · [工作流说明](docs/resume-workflow.md)
 
 </div>
 
----
+TouchstoneCV 是本地优先的简历工作台：导入已有简历并校对内容，编辑经历、查看 A4 预览，依据招聘 JD 创建岗位版本，导出 PDF 或可编辑 DOCX。规则与模型建议以「原文 → 建议」对照呈现，确认后才写入。
 
-TouchstoneCV 是一个**本地优先**的 AI 简历工作台：上传已有的简历（PDF / DOCX / MD / TXT），自动解析成结构化数据；逐模块编辑、拖拽排序；粘贴一段招聘 JD，立刻得到本地匹配度分析；再让 AI 针对每个条目给出润色建议——所有建议都以「原文 → 建议」对照呈现，**你确认后才写入**。最后经系统打印管线导出像素级还原的 A4 PDF。
-
-**默认配置下，没有任何数据离开你的电脑**：不注册、不上传、无遥测；外部模型默认关闭，开启后每次调用都要逐次确认。
-
----
+默认不注册、不上传简历、不发送遥测。数据保存在当前站点的浏览器 IndexedDB；外部模型默认关闭，开启后每次发送内容仍需确认。本机密钥未加密，备份不包含 API Key。
 
 **TouchstoneCV — Local-first AI Resume Workbench**
 
-A local-first AI workbench for building, analyzing, and tailoring resumes. Parse your experience into structured data, match your resume against job descriptions, improve content with AI, and export polished resumes — while keeping your data under your control.
+Import, review, edit and tailor resumes with A4 previews, optional model suggestions, version snapshots and application tracking. Data stays in your browser by default. External models require explicit enablement and confirmation for every call.
 
-By default nothing leaves your machine: no sign-up, no upload, no telemetry. External models stay off until you enable them, and every call asks for your confirmation before it goes out.
+## 功能
 
-<p align="center">
-  <img src="docs/screenshots/home.png" alt="TouchstoneCV 工作台首页" width="48%" />
-  &nbsp;
-  <img src="docs/screenshots/editor.png" alt="TouchstoneCV A4 编辑器与 AI 建议面板" width="48%" />
-</p>
+- **创建与校对**：PDF / DOCX / MD / TXT 导入、粘贴文本、空白创建及分类示例；场景限定校招、实习、社招。解析结果先校对，确认后创建。
+- **编辑与预览**：桌面内容与预览并排独立滚动，可调整比例；手机切换视图。支持栏目及条目排序、显隐、富文本和排版设置。
+- **JD 与内容建议**：先展示招聘原句、必需/优先项和简历证据，规则数值按需展开。规则检查与模型写作区分，建议接受后才写入；量化事实由用户提供。
+- **主简历与岗位版本**：岗位版本是独立副本，修改不影响主简历；主简历更新仅提示，由用户选择栏目同步。
+- **版本与投递追溯**：初始、自动、手动和导出快照可查看、比较与恢复。实际投递后固定关联快照，当前简历的后续编辑不改变投递内容。
+- **求职辅助**：中英版式、英文条目翻译、可编辑 DOCX、求职信草稿、状态图标、反馈时间线和跟进日期。投递与反馈由用户手动记录，不自动发送。
+- **简洁工作台与演示**：真实内容缩略图，填写情况、版本细节及投递图表按需展开。新用户可观看五步动效演示或跳过，已有资料的用户自动跳过；侧栏「使用指南」可重看，演示不创建实际数据。
 
-## ✨ 它能帮你做什么
+| 模板 | 实际布局 |
+| --- | --- |
+| 现代单栏 | 彩色标题、单栏内容 |
+| 经典 ATS | 黑白单栏、标准标题 |
+| 学术双栏 | 头像页眉、双栏内容 |
 
-- **免重录的起点** —— 拖入旧简历，PDF / DOCX / MD / TXT 自动解析成结构化数据，姓名、经历、技能各归各位，从「改」开始而不是从「打」开始。
-- **所见即所得的 A4 编辑** —— 左侧调模块、中间改内容、右侧看建议，实时 A4 预览；模块拖拽排序、条目显隐、要点样式（菱形/圆点/短横）随手切换。
-- **JD 匹配度体检** —— 粘贴目标岗位的 JD，本地规则引擎提取技能与关键词，给出综合匹配分、四维细分（技能/关键词/经历相关性/表达质量）和缺失项清单，改哪里一目了然。
-- **AI 只当副驾** —— 逐条目规则检查与模型写作（润色、改写、量化、精简、扩写、JD 对齐、ATS 表达优化）；模型支持英文条目翻译；未启用模型时改写、扩写和翻译不可用。支持模块逐条排队，每条建议以 diff 对照展示，接受、编辑后接受或拒绝都由你决定。
-- **隐私不打折扣** —— 不注册不上传不遥测；API Key 界面掩码、不进日志；富文本经白名单消毒；一键备份/恢复全部数据。
-- **导出即所见** —— 三套模板（现代单栏 / 经典 ATS / 学术双栏）配主题色与字号调节，「打印 → 另存为 PDF」忠实还原预览效果，ATS 模板专门为机器筛选优化。
-- **完整求职流程** —— 导入后先校对，分类示例按校招/实习/社招选择；母版与岗位版本独立编辑，快照可比较与恢复；中英版式、可编辑 DOCX、求职信草稿及投递跟进记录。
+模板与匹配分数不保证招聘筛选结果。更多入口与行为见 [求职工作流说明](docs/resume-workflow.md)。
 
-新功能入口及验证范围见 [求职工作流说明](docs/resume-workflow.md)。
+## 快速开始
 
-<details>
-<summary>三套模板一览</summary>
-
-| 模板         | 适合                                                        |
-| ------------ | ----------------------------------------------------------- |
-| **现代单栏** | 互联网 / 设计等行业投递，serif 姓名 + 主题色分隔 + 图标徽章 |
-| **经典 ATS** | 大厂网申、机器筛简历场景：标准标题、纯文本技能，解析器友好  |
-| **学术双栏** | 应届生 / 学术求职：头像页眉、圆形图标徽章、双栏紧凑排版     |
-
-</details>
-
-## 🚀 快速开始
-
-**方式一：在线体验（零安装）**
-
-直接打开 👉 **[beta-zheng.github.io/TouchstoneCV](https://beta-zheng.github.io/TouchstoneCV/)**，数据只存在当前浏览器的 IndexedDB 中。
-
-**方式二：本地运行**
+直接打开 [在线体验](https://beta-zheng.github.io/TouchstoneCV/)，或在本机运行（Node.js ≥ 20）：
 
 ```bash
-git clone https://github.com/beta-zheng/TouchstoneCV.git
+git clone https://github.com/Beta-Zheng/TouchstoneCV.git
 cd TouchstoneCV
-npm install
-npm run dev        # 打开 http://localhost:3000
+npm ci
+npm run dev
 ```
 
-要求：Node.js ≥ 20。可选：本地运行 [Ollama](https://ollama.com) 即可启用纯本机的模型建议（无需任何 API Key）。
+打开终端显示的本机地址，端口被占用时会自动换端口。可选连接本机 Ollama；无模型也能编辑、使用规则检查、分析 JD 和导出。
 
-> 部署到自己的 GitHub Pages：`VITE_BASE_PATH=/<仓库名>/ npm run build`，把 `dist/` 发布即可。
+部署到自己的 GitHub Pages：设置 `VITE_BASE_PATH=/<仓库名>/` 后运行 `npm run build`，发布 `dist/`。在线站点功能取决于其部署版本。
 
-## 📖 使用指南
+## 使用指南
 
-### 1. 创建简历（三种方式）
+1. **创建**：工作台「新建简历」选择文件（≤10MB）、文本、空白或示例；对照原文校对后确认。示例均为虚构资料，投递前替换。
+2. **编辑**：切换「写内容」「内容与预览」「仅预览」。栏目目录用于排序和显隐；条目提供「优化这段」与「更多」。模板、语言、颜色与字号集中在「简历设置」。
+3. **定制岗位**：展开「求职流程」，创建岗位副本并关联公司、岗位与 JD；JD 面板展示证据，工具面板查看建议。接受建议前核对事实。
+4. **检查导出**：「导出」查看内容问题与实际分页，下载 DOCX、TXT、单份 JSON，或经浏览器打印保存 PDF。PDF 建议 A4、100% 缩放、关闭页眉页脚、开启背景图形；过长条目需拆分。
+5. **记录投递**：关联实际投递版本，手动更新状态、反馈及跟进日期。「查看投递统计」展示状态分布和八周趋势；无反馈不代表拒绝，缺失历史不推断。
 
-- **上传文件**：把 `.pdf / .docx / .md / .txt`（≤10MB）拖进页面任意位置，或点「新建简历」选择文件；
-- **粘贴文本**：解析失败会自动引导到此页签，直接粘贴简历全文同样可以结构化；
-- **空白 / 示例**：从零手动填写，或选择 AI 应用、前端、数据分析示例，以及校招/实习/社招场景。示例内容为虚构资料，投递前必须替换。
+停止输入约 1 秒后保存当前内容；停止编辑 30 秒、离开编辑页或页面隐藏时记录有变化的快照。「辅助工具 → 版本记录」可查看、比较与恢复，保留初始、投递关联快照和最近 20 份其他快照。保存失败时先重试或备份，再刷新；多个窗口同时编辑会拒绝陈旧窗口覆盖。
 
-文件或文本解析后先进入校对页，可对照原文修改字段、移动条目归类；确认后才创建简历。原文保留在「更多工具 → 查看导入原文」。
+「模型与隐私」支持本地 Ollama 和 OpenAI Compatible 服务。策略显示为「本地优先」「逐次确认」「仅本地」。模型默认关闭；改写、扩写与英文翻译需启用模型，规则建议不能代替模型写作。外部调用发送前展示内容并确认。
 
-> 扫描件 PDF 提取不到文本时会明确提示，不会静默给你一份空简历。
+## 常见问题与限制
 
-### 2. 编辑器与求职流程
+- **数据与备份**：数据仅属于当前浏览器及站点，不自动跨设备同步。「数据管理」备份与恢复支持校验、预览、合并或替换。旧 localStorage 数据校验后迁移，失败时保留旧副本；清理浏览器数据会删除本地资料，请定期备份。
+- **扫描 PDF**：图片型 PDF 没有文本层，当前不提供 OCR；可粘贴文本并校对。
+- **中英版式**：切换语言仅调整标准标题与日期，不翻译已有经历；模型翻译需逐条确认。
+- **PDF 与 Word**：PDF 使用系统打印，关闭窗口不代表文件已保存，版本标记为「导出准备」。DOCX 为单栏文本布局，不复制头像与全部视觉样式，分页随字体环境变化。
+- **模型与隐私**：外部服务需显式启用并逐次确认；API Key 不写入备份和日志。本机密钥未加密。富文本渲染经白名单消毒。
+- **求职信与投递**：草稿需要核对事实与动机；没有自动投递、发信或企业反馈抓取。
 
-顶部五步流程直接进入校对内容、选择岗位、补强经历、检查导出、记录投递。基础字段完成度只表示填写情况，不代表内容质量或投递准备完成。
-
-- **左栏 · 模块大纲**：拖拽调整模块顺序、开关模块显隐、添加自定义模块；
-- **中栏 · 编辑区**：每个条目卡片可折叠、可整卡拖拽排序、可上移/下移/删除/隐藏；描述与要点支持选中加粗、斜体；右上「AI」按钮呼出动作菜单；
-- **右栏 · AI 建议 + JD 匹配**：两个页签分别承载 AI 建议流程与 JD 分析结果；
-- **自动保存**：停止输入约 1 秒后写入本机，顶栏显示最近保存时间，刷新不丢。
-
-### 3. JD 匹配
-
-右栏切到「JD 匹配」→ 粘贴招聘 JD → 「解析 JD」提取技能与关键词 → 「分析与当前简历的匹配度」，先核对 JD 原句、必需/优先项及简历证据，规则数值默认折叠；低于理想的维度会列出缺失技能与关键词，回到编辑器针对性补强即可。
-
-### 4. AI 建议
-
-条目上点「AI」→ 选动作（润色 / 改写 / 量化 / 精简 / 扩写 / JD 对齐 / ATS 表达优化）→ 建议以**原文 → 建议 diff** 呈现 → 「接受」「编辑后接受」或「拒绝」。默认使用本地规则引擎；连接 Ollama 或开启外部模型后由模型生成，模型上下文包含可见经历、目标职位与成果，排除联系方式。「更多工具 → 优化当前模块」支持串行批处理；外部模型仍对每个条目单独确认。量化向导只加入你提供的事实。
-
-### 5. 模板与导出 PDF
-
-编辑器顶部可切换模板、主题色、字号和版式语言。「看版式 / 实时预览」按条目测量并分页；「检查 / 导出」检查内容并下载 DOCX、TXT、单份 JSON，或通过系统打印保存 PDF。单个条目超过一页时需拆分后再打印，避免裁切。英文版式调整标准标题和日期，不自动翻译经历；可在已启用模型时使用条目的「英文翻译」，逐条确认后再导出。DOCX 使用可编辑单栏，保留文本内容，不复制 PDF 的头像与视觉样式。
-
-> 提示：打印时请在「更多设置」中勾选**背景图形**，主题色分隔线与徽章底色才会被打印出来。
-
-### 6. 模型配置（可选）
-
-默认启用规则检查，不自动调用模型；「模型与隐私」页预置了待启用的本地 Ollama（`http://localhost:11434`）。三种策略按需选择：`local_first`（默认，本地优先）、`ask_before_external`（外部模型每次弹窗确认）、`local_only`（永不外发）。外部 OpenAI Compatible 模型默认关闭，API Key 仅存本机、界面掩码。
-
-## ❓ 常见问题
-
-**Q：我的简历数据存在哪里？**
-浏览器的 IndexedDB 中，只在当前浏览器与站点中。旧 localStorage 数据会校验后迁移，迁移失败时保留旧副本。「数据管理」页可查看占用、备份全部或单份简历。恢复前会校验并预览，可合并为新简历或替换现有数据。备份不含 API Key，旧备份兼容；新导入或地址变化的模型默认关闭。清理浏览器数据会丢失本地记录，请定期备份；容量不足会显示保存失败与重试入口。
-
-**Q：PDF 解析失败怎么办？**
-先确认不是扫描件（图片型 PDF 无文本层）。解析失败会自动引导到「粘贴文本」页签，复制原文粘贴同样能结构化。
-
-**Q：导出的 PDF 没有颜色？**
-系统打印默认不打印背景色。在打印对话框的「更多设置」里勾选「背景图形」即可。
-
-**Q：必须配置模型才能用吗？**
-不需要。无模型时 AI 动作走内置的本地规则引擎（去冗余修饰、统一表述等），JD 匹配本身就是纯本地规则，完整可用。
-
-**Q：AI 会不会直接改我的简历？**
-不会。任何 AI 建议都以对照形式展示，只有你点了「接受」（或「编辑后接受」）才会写入，并可随时在「AI 建议」记录里追溯。
-
-## 🔒 隐私与安全
-
-- 默认不上传任何数据、不发遥测、不请求外部服务；
-- 外部模型必须显式开启，且每次调用前逐次确认；
-- API Key 界面掩码展示，不写入备份与日志；
-- 富文本渲染前经白名单消毒（`sanitizeInline`），防注入；
-- 解析失败、AI 失败、导出失败均有兜底，不会丢失已编辑内容。
-
-## 🛠 开发
+## 开发与验证
 
 ```bash
-npm run dev           # 开发模式 → http://localhost:3000
-npm run build         # 生产构建 → dist/
+npm run dev           # 开发服务
 npm run typecheck     # TypeScript 检查
 npm test              # 单元测试
-npm run test:storage  # 隔离浏览器中的真实 IndexedDB 回归
-npm run test:exports  # 实际模板 PDF 渲染及 Word 布局验证（先 build）
+npm run build         # 生产构建 → dist/
+npm run test:storage  # 隔离浏览器中的 IndexedDB 回归
+npm run test:exports  # 实际模板 PDF 与可选 Word 渲染验证，先运行 build
 ```
 
-技术栈：React 18 · TypeScript · Vite 6 · Tailwind CSS 4 · Zustand（persist）· dnd-kit · framer-motion。
+技术栈：React 18 · TypeScript · Vite 6 · Tailwind CSS 4 · Zustand · IndexedDB · dnd-kit · framer-motion。
 
-欢迎 Issue 与 PR：报 bug 请附复现步骤与浏览器版本；提功能建议请先说明使用场景。
+当前验证包含 18 个测试文件、178 项测试，覆盖存储迁移与冲突、JD 证据、建议处理、版本隔离、投递快照、备份关联及首次使用偏好。类型检查与生产构建通过，三套模板的中英双页 PDF 共六组通过文字、页数、尺寸及边界检查；375px 布局已检查。
+
+导出验证产物位于忽略提交的 `.export-qa/`。本机没有 LibreOffice，未执行 Word 实际渲染；PR CI 安装 LibreOffice 与所需字体并设置 `REQUIRE_WORD_QA=1`，要求 Word 渲染通过。真实外部模型连接需按使用环境验证。
+
+欢迎 Issue 与 PR：报告问题请附复现步骤及浏览器版本。
 
 ## License
 

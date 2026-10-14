@@ -15,9 +15,8 @@ export function Btn({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant }) {
   const styles: Record<BtnVariant, string> = {
-    primary:
-      "bg-brand-gradient text-white shadow-md shadow-brand-900/25 hover:-translate-y-px hover:shadow-lg hover:shadow-brand-900/30",
-    dark: "bg-brand-700 text-white hover:bg-brand-800 shadow-sm shadow-brand-900/25",
+    primary: "bg-brand-600 text-white hover:bg-brand-700",
+    dark: "bg-brand-700 text-white hover:bg-brand-800",
     ghost: "text-ink-600 hover:bg-ink-900/5 hover:text-ink-900",
     outline:
       "border border-ink-200 bg-white/70 text-ink-800 hover:border-ink-300 hover:bg-white",
@@ -28,7 +27,7 @@ export function Btn({
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-all duration-150 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45",
+        "inline-flex items-center justify-center gap-2 rounded-sm px-3.5 py-2 text-[14px] font-medium leading-5 transition-colors duration-150 disabled:pointer-events-none disabled:opacity-45",
         styles[variant],
         className
       )}
@@ -266,7 +265,7 @@ export function Toggle({
     >
       <span
         className={cx(
-          "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+          "absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
           checked ? "translate-x-[18px]" : "translate-x-0.5"
         )}
       />

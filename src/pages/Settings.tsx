@@ -119,17 +119,11 @@ export default function Settings() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-6 pb-16 pt-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-12 pt-7 sm:px-6">
       <header className="anim-fade-up">
-        <p className="mb-1.5 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-brand-600">
-          <IconDatabase size={12} /> Local Data
-        </p>
-        <h1 className="font-display text-[30px] font-black text-ink-900">
-          数据与隐私
+        <h1 className="text-[28px] font-semibold tracking-tight text-ink-900">
+          数据管理
         </h1>
-        <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-ink-500">
-          所有数据默认保存在本机，不上传、不遥测、不请求外部服务。你可以随时备份、恢复或彻底清空。
-        </p>
       </header>
 
       {app.saveStatus === "error" && (
@@ -141,7 +135,7 @@ export default function Settings() {
         </p>
       )}
 
-      <div className="grid gap-4 md:grid-cols-[1.2fr_1fr]">
+      <div className="grid items-start gap-4 md:grid-cols-[1.2fr_1fr]">
         {/* 数据概览 */}
         <section
           className="anim-fade-up rounded-2xl border border-ink-200 bg-paper-25 p-5"
@@ -161,9 +155,9 @@ export default function Settings() {
                 key={String(label)}
                 className="rounded-xl border border-ink-100 bg-white px-3.5 py-3"
               >
-                <p className="font-mono text-[22px] font-bold leading-none text-ink-900">
+                <p className="text-[22px] font-semibold leading-none tabular-nums text-ink-900">
                   {n}
-                  <span className="ml-1 text-[11px] font-medium text-ink-300">
+                  <span className="ml-1 text-[12px] font-medium text-ink-500">
                     {unit}
                   </span>
                 </p>
@@ -172,67 +166,76 @@ export default function Settings() {
             ))}
           </div>
           <p className="mt-3 flex items-center justify-between rounded-lg bg-paper-100 px-3 py-2 font-mono text-[11px] text-ink-500">
-            <span>文档展开大小（含快照重复内容）</span>
+            <span>数据体积估算</span>
             <span className="font-bold text-ink-800">{storageKB} KB</span>
           </p>
-          <pre className="mt-3 overflow-x-auto rounded-xl bg-ink-900 p-3.5 font-mono text-[10.5px] leading-relaxed text-paper-200">
-            {`本机 IndexedDB
+          <details className="mt-3 text-[12px] text-ink-500">
+            <summary className="cursor-pointer">存储与密钥说明</summary>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-paper-100 p-3 font-mono text-[12px] leading-relaxed text-ink-600">
+              {`本机 IndexedDB
 ├── 简历与快照：共享未改动条目
 ├── 图片与导入原文：独立去重存储
 └── 模型配置、投递记录与隐私设置
 
 旧 localStorage 数据校验并迁移成功后才移除。
 备份不含 API Key；本机密钥未加密。`}
-          </pre>
-          {storageEstimate && (
-            <p className="mt-2 text-[11px] text-ink-500">
-              站点实际占用约{" "}
-              {((storageEstimate.usage ?? 0) / 1024 / 1024).toFixed(1)}{" "}
-              MB，浏览器报告配额约{" "}
-              {((storageEstimate.quota ?? 0) / 1024 / 1024).toFixed(0)}{" "}
-              MB（含本网站缓存，配额不保证可全部使用）。
-            </p>
-          )}
-          <p className="mt-2 text-[11px] text-ink-500">
-            浏览器清理站点数据仍会删除简历，请定期备份。多个窗口同时编辑时会拒绝覆盖旧版本；遇到保存失败，请先备份当前内容再刷新。
+            </pre>
+            {storageEstimate && (
+              <p className="mt-2 text-[11px] text-ink-500">
+                站点实际占用约{" "}
+                {((storageEstimate.usage ?? 0) / 1024 / 1024).toFixed(1)}{" "}
+                MB，浏览器报告配额约{" "}
+                {((storageEstimate.quota ?? 0) / 1024 / 1024).toFixed(0)}{" "}
+                MB（含本网站缓存，配额不保证可全部使用）。
+              </p>
+            )}
+          </details>
+          <p className="mt-3 text-[12px] text-ink-500">
+            清理浏览器数据会删除简历，请定期备份。
           </p>
         </section>
 
-        {/* 隐私（v1.4：深靛底替代纯黑，属靛蓝家族不违反墨色减法） */}
+        {/* 隐私与备份 */}
         <section
           className="anim-fade-up flex flex-col gap-3"
           style={{ animationDelay: "0.1s" }}
         >
-          <div className="rounded-2xl border border-brand-800 bg-brand-800 p-5 text-white">
+          <div className="rounded-xl border border-line bg-surface p-5 text-ink-800">
             <h2 className="flex items-center gap-2 text-[15px] font-bold">
-              <IconLock size={16} className="text-brand-200" /> 隐私承诺
+              <IconLock size={16} className="text-ink-500" /> 数据隐私
             </h2>
-            <ul className="mt-3 flex flex-col gap-2">
-              {[
-                "默认不上传任何数据",
-                "默认不发送遥测",
-                "默认不请求外部服务",
-                "外部模型必须显式开启并逐次提示",
-                "日志不记录完整 API Key 与简历全文",
-              ].map((t) => (
-                <li
-                  key={t}
-                  className="flex items-start gap-2 text-[12px] leading-relaxed text-white/85"
-                >
-                  <IconCheck
-                    size={13}
-                    className="mt-0.5 shrink-0 text-brand-200"
-                  />{" "}
-                  {t}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 flex items-center justify-between rounded-xl bg-brand-900 px-3.5 py-2.5">
+            <details className="mt-3 text-[12px] text-ink-500">
+              <summary className="cursor-pointer">查看隐私说明</summary>
+              <ul className="mt-3 flex flex-col gap-2">
+                {[
+                  "默认不上传任何数据",
+                  "默认不发送遥测",
+                  "默认不请求外部服务",
+                  "外部模型必须显式开启并逐次提示",
+                  "日志不记录完整 API Key 与简历全文",
+                ].map((t) => (
+                  <li
+                    key={t}
+                    className="flex items-start gap-2 text-[12px] leading-relaxed text-ink-600"
+                  >
+                    <IconCheck
+                      size={13}
+                      className="mt-0.5 shrink-0 text-ink-500"
+                    />{" "}
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </details>
+            <p className="mt-3 text-[12px] text-ink-500">
+              外部模型发送内容前逐次确认。
+            </p>
+            <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
               <span className="flex items-center gap-2 text-[12px] font-medium">
                 <IconShield
                   size={14}
                   className={
-                    privacy.allowExternal ? "text-seal-500" : "text-brand-200"
+                    privacy.allowExternal ? "text-seal-600" : "text-ink-500"
                   }
                 />
                 允许外部模型
@@ -254,9 +257,8 @@ export default function Settings() {
           {/* 备份恢复 */}
           <div className="flex-1 rounded-2xl border border-ink-200 bg-paper-25 p-5">
             <h2 className="text-[15px] font-bold text-ink-900">备份与恢复</h2>
-            <p className="mt-1 text-[11.5px] leading-relaxed text-ink-400">
-              备份包含简历、JD、AI 建议与模型配置，不含 API
-              Key。恢复将覆盖当前数据、关闭外部调用，并保留同一服务的本机密钥；新设备请重新填写密钥。
+            <p className="mt-2 text-[12px] text-ink-500">
+              备份不含密钥，恢复时可选择合并或替换。
             </p>
             <div className="mt-3.5 flex flex-col gap-2">
               <Btn variant="dark" className="h-9" onClick={backup}>
@@ -364,11 +366,6 @@ export default function Settings() {
           )}
         </div>
       </section>
-
-      <p className="text-center font-mono text-[10.5px] text-ink-300">
-        TouchstoneCV · 本地优先 · 隐私默认保护 · 构建于{" "}
-        {new Date().getFullYear()}
-      </p>
 
       <Confirm
         open={confirmClear}

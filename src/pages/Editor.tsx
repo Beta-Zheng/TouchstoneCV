@@ -747,7 +747,6 @@ export default function Editor({ resumeId }: { resumeId: string }) {
       >
         <ModalHeader
           title="简历设置"
-          sub="调整栏目场景、模板和版式"
           onClose={() => setSettingsOpen(false)}
         />
         <div className="px-5 pb-5">

@@ -21,12 +21,12 @@ import {
 } from "../lib/workflow";
 import { Btn, Confirm, Modal, ModalHeader } from "../components/ui";
 import ImportReview from "../components/import-review";
+import ResumeThumbnail from "../components/resume-thumbnail";
 import {
   IconArrowRight,
   IconFile,
   IconLayers,
   IconPlus,
-  IconShield,
   IconUpload,
 } from "../components/icons";
 
@@ -41,7 +41,6 @@ export default function Home() {
   const app = useAppSlice(
     "resumes",
     "suggestions",
-    "privacy",
     "snapshots",
     "applications",
     "go",
@@ -187,41 +186,29 @@ export default function Home() {
     >
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-widest text-brand-600">
-            本机简历工作台
-          </p>
-          <h1 className="mt-2 font-display text-[30px] font-black">
+          <h1 className="text-[28px] font-semibold tracking-tight">
             简历工作台
           </h1>
-          <p className="mt-2 text-[13px] text-ink-500">
-            核对内容 → 针对岗位优化 → 检查版式 → 导出投递
-          </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1 text-[11px] text-ink-500">
-            <IconShield size={13} />
-            {app.privacy.allowExternal ? "外部调用逐次确认" : "本地模式"}
-          </span>
           <Btn variant="primary" onClick={() => openCreate()}>
             <IconPlus size={14} /> 新建简历
           </Btn>
         </div>
       </header>
       {latest && (
-        <section className="rounded-2xl border border-brand-200 bg-brand-50 p-5">
-          <p className="text-[11px] font-bold text-brand-700">
-            继续完成你的简历
-          </p>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <section className="border-b border-line pb-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-bold">{latest.title}</h2>
+              <p className="mb-1 text-[12px] text-ink-500">最近编辑</p>
+              <h2 className="text-[16px] font-semibold">{latest.title}</h2>
               <p className="mt-1 text-[12px] text-ink-500">
                 {issues.find((i) => i.severity === "warning")?.message ??
-                  "可以检查岗位匹配与版式。"}
+                  `${timeAgo(latest.updated_at)}更新`}
               </p>
             </div>
             <Btn
-              variant="primary"
+              variant="outline"
               onClick={() => app.go({ name: "editor", resumeId: latest.id })}
             >
               继续编辑 <IconArrowRight size={13} />
@@ -229,9 +216,9 @@ export default function Home() {
           </div>
         </section>
       )}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-ink-500">
         {[
-          ["简历", app.resumes.length],
+          ["在用简历", app.resumes.filter((r) => !r.archived_at).length],
           [
             "待审阅建议",
             app.suggestions.filter(
@@ -240,12 +227,9 @@ export default function Home() {
           ],
           ["投递记录", app.applications.length],
         ].map(([label, value]) => (
-          <div
-            key={String(label)}
-            className="rounded-xl border border-line bg-surface p-4"
-          >
-            <p className="text-[11px] text-ink-400">{label}</p>
-            <p className="mt-1 text-2xl font-bold">{value}</p>
+          <div key={String(label)} className="flex items-center gap-2">
+            <span>{label}</span>
+            <span className="font-semibold text-ink-800">{value}</span>
           </div>
         ))}
       </div>
@@ -312,74 +296,82 @@ export default function Home() {
               return (
                 <li
                   key={r.id}
-                  className="flex flex-col rounded-2xl border border-line bg-surface p-4"
+                  className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-surface"
                 >
                   <button
                     className="text-left"
                     onClick={() => app.go({ name: "editor", resumeId: r.id })}
                   >
-                    <p className="truncate font-bold">{r.title}</p>
-                    <p className="mt-1 truncate text-[12px] text-ink-500">
-                      {r.target
-                        ? `${r.target.company} · ${r.target.job_title}`
-                        : r.data.basic_info.title || "尚未填写目标职位"}
+                    <ResumeThumbnail resume={r} />
+                    <p className="truncate px-4 pt-4 text-[16px] font-semibold">
+                      {r.title}
                     </p>
+                    {(r.target
+                      ? `${r.target.company} · ${r.target.job_title}`
+                      : r.data.basic_info.title) !== r.title && (
+                      <p className="mt-1 truncate px-4 text-[13px] text-ink-500">
+                        {r.target
+                          ? `${r.target.company} · ${r.target.job_title}`
+                          : r.data.basic_info.title || "尚未填写目标职位"}
+                      </p>
+                    )}
                   </button>
-                  <div className="mt-3 flex flex-wrap gap-1 text-[10px]">
+                  <div className="mt-3 flex flex-wrap gap-1 px-4">
                     <span className="chip bg-paper-100">
                       {r.target ? "岗位版本" : "主简历"}
                     </span>
                     {r.archived_at && (
                       <span className="chip bg-paper-100">已归档</span>
                     )}
-                    <span className="chip bg-paper-100">
-                      {
-                        TEMPLATES.find((t) => t.template_id === r.template_id)
-                          ?.name
-                      }
-                    </span>
-                    <span className="chip bg-paper-100">
-                      {r.locale === "en" ? "英文版式" : "中文版式"}
-                    </span>
                   </div>
                   {r.target?.source_resume_id && (
-                    <p className="mt-2 text-[11px] text-ink-500">
+                    <p className="mt-2 truncate px-4 text-[12px] text-ink-500">
                       来源：
                       {app.resumes.find(
                         (source) => source.id === r.target?.source_resume_id
                       )?.title ?? "原主简历未包含在当前备份中"}
                     </p>
                   )}
-                  <p className="mt-3 text-[11px] text-ink-500">
-                    基础字段完成度 {completion(r)}% ·{" "}
+                  <p className="mt-3 px-4 text-[12px] text-ink-500">
                     {problems.length
                       ? `${problems.length} 项待检查`
                       : "基础检查通过"}
                   </p>
-                  <div className="mt-2 flex gap-2">
-                    {CORE_MODULES.map((m) => (
-                      <span
-                        key={m.type}
-                        title={`${m.label}：${
-                          moduleFilled(r, m.type) ? "已填写" : "待补充 / 可选"
-                        }`}
-                        className={`h-2 w-2 rounded-full ${
-                          moduleFilled(r, m.type) ? "bg-brand-500" : "bg-line"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <p className="mt-3 text-[10px] text-ink-400">
-                    {timeAgo(r.updated_at)}更新 ·{" "}
-                    {app.snapshots.filter((s) => s.resume_id === r.id).length}{" "}
-                    个保存版本 ·{" "}
-                    {exp
-                      ? `导出准备于${timeAgo(exp.created_at)}`
-                      : "尚未生成导出快照"}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
+                  <details className="mx-4 mb-4 mt-2 text-[12px] text-ink-500">
+                    <summary className="cursor-pointer">版本与填写情况</summary>
+                    <p className="mt-2">
+                      基础字段完成度 {completion(r)}% ·{" "}
+                      {
+                        TEMPLATES.find((t) => t.template_id === r.template_id)
+                          ?.name
+                      }{" "}
+                      · {r.locale === "en" ? "英文版式" : "中文版式"}
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      {CORE_MODULES.map((m) => (
+                        <span
+                          key={m.type}
+                          title={`${m.label}：${
+                            moduleFilled(r, m.type) ? "已填写" : "待补充 / 可选"
+                          }`}
+                          className={`h-2 w-2 rounded-full ${
+                            moduleFilled(r, m.type) ? "bg-brand-500" : "bg-line"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[12px] text-ink-500">
+                      {timeAgo(r.updated_at)}更新 ·{" "}
+                      {app.snapshots.filter((s) => s.resume_id === r.id).length}{" "}
+                      个保存版本 ·{" "}
+                      {exp
+                        ? `导出准备于${timeAgo(exp.created_at)}`
+                        : "尚未生成导出快照"}
+                    </p>
+                  </details>
+                  <div className="mx-4 mb-4 mt-auto flex items-center justify-between border-t border-line pt-3">
                     <Btn
-                      variant="primary"
+                      variant="outline"
                       className="h-8"
                       onClick={() => app.go({ name: "editor", resumeId: r.id })}
                     >

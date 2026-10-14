@@ -339,40 +339,37 @@ export default function Models() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-6 pb-16 pt-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-12 pt-7 sm:px-6">
       <header className="anim-fade-up">
-        <p className="mb-1.5 flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-brand-600">
-          <IconCpu size={12} /> LLM Gateway
-        </p>
-        <h1 className="font-display text-[30px] font-black text-ink-900">
+        <h1 className="text-[28px] font-semibold tracking-tight text-ink-900">
           模型与隐私
         </h1>
-        <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-ink-500">
-          支持 Ollama 本地模型与 OpenAI Compatible 外部模型。默认策略：
-          <b className="text-ink-800">本地优先</b>
-          ，外部模型默认关闭；无可用模型时自动降级为本地规则引擎。
-        </p>
       </header>
 
-      <section className="rounded-xl border border-brand-200 bg-brand-50 p-4">
-        <p className="text-[12px] font-bold text-brand-800">
-          当前运行方式：{modeLabel}
-        </p>
-        <p className="mt-1 text-[11px] text-ink-500">
-          {localModel
-            ? `配置模型：${localModel.name}。连接失败时会回退本地规则；启用不代表服务当前可连接。`
-            : "本地规则直接在浏览器执行。外部模型仍需每次确认发送内容。"}
-        </p>
+      <section className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-5">
+        <div>
+          <p className="text-[14px] font-medium text-ink-800">
+            当前：{modeLabel}
+          </p>
+          <details className="mt-2 text-[12px] text-ink-500">
+            <summary className="cursor-pointer">运行说明</summary>
+            <p className="mt-2">
+              {localModel
+                ? `配置模型：${localModel.name}。连接失败时会回退本地规则；启用不代表服务当前可连接。`
+                : "本地规则直接在浏览器执行。外部模型仍需每次确认发送内容。"}
+            </p>
+          </details>
+        </div>
         <Btn
           variant="outline"
-          className="mt-2 h-8 text-[11px]"
+          className="text-[13px]"
           onClick={() => {
             models.filter((m) => m.enabled).forEach((m) => toggleModel(m.id));
             setPrivacy({ allowExternal: false, route: "local_only" });
             toast("ok", "已切换到本地规则模式");
           }}
         >
-          使用本地规则（关闭模型调用）
+          切换到本地规则
         </Btn>
       </section>
 
@@ -388,7 +385,7 @@ export default function Models() {
                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
                 privacy.allowExternal
                   ? "bg-seal-100 text-seal-600"
-                  : "bg-brand-gradient text-white shadow-brand-glow"
+                  : "bg-paper-100 text-ink-600"
               )}
             >
               <IconShield size={19} />
@@ -398,7 +395,7 @@ export default function Models() {
                 允许调用外部模型
               </h2>
               <p className="mt-0.5 text-[12px] leading-relaxed text-ink-400">
-                开启后，当本地模型不可用时可将条目内容发送到外部服务。调用前会在界面明确提示。当前累计外部调用{" "}
+                发送条目到外部服务前逐次确认。累计调用{" "}
                 <b className="font-mono text-ink-700">{externalCallCount}</b>{" "}
                 次。
               </p>
@@ -421,44 +418,41 @@ export default function Models() {
             [
               [
                 "local_first",
-                "local_first",
+                "本地优先",
                 "本地优先，本地不可用且已授权时才用外部",
               ],
-              [
-                "ask_before_external",
-                "ask_before_external",
-                "每次使用外部模型前弹窗确认",
-              ],
+              ["ask_before_external", "逐次确认", "每次使用外部模型前弹窗确认"],
               [
                 "local_only",
-                "local_only",
+                "仅本地",
                 "绝不发起外部请求，无本地模型时用规则引擎",
               ],
             ] as Array<[RouteStrategy, string, string]>
           ).map(([k, label, desc]) => (
             <button
               key={k}
+              aria-pressed={privacy.route === k}
               onClick={() => {
                 setPrivacy({ route: k });
-                toast("ok", `路由策略已切换为 ${k}`);
+                toast("ok", `已切换为${label}`);
               }}
               className={cx(
                 "rounded-xl border p-3 text-left transition-all",
                 privacy.route === k
-                  ? "border-brand-500 bg-brand-50 shadow-sm"
+                  ? "border-brand-500 bg-brand-50"
                   : "border-ink-200 bg-white hover:border-ink-300"
               )}
             >
               <span
                 className={cx(
-                  "flex items-center gap-1.5 font-mono text-[11.5px] font-bold",
+                  "flex items-center gap-1.5 text-[13px] font-medium",
                   privacy.route === k ? "text-brand-700" : "text-ink-700"
                 )}
               >
                 {privacy.route === k && <IconCheck size={11} />}
                 {label}
               </span>
-              <span className="mt-1 block text-[10.5px] leading-snug text-ink-400">
+              <span className="mt-1 block text-[12px] leading-relaxed text-ink-500">
                 {desc}
               </span>
             </button>
@@ -471,7 +465,7 @@ export default function Models() {
         <div className="mb-2.5 flex items-center justify-between">
           <h2 className="font-display text-[18px] font-bold text-ink-900">
             已配置模型{" "}
-            <span className="font-mono text-[12px] font-medium text-ink-300">
+            <span className="text-[12px] font-medium text-ink-500">
               {models.length}
             </span>
           </h2>
@@ -493,10 +487,8 @@ export default function Models() {
               <div
                 key={m.id}
                 className={cx(
-                  "group rounded-xl border bg-paper-25 p-4 transition-all",
-                  m.enabled
-                    ? "border-ink-200 shadow-sm shadow-ink-950/5"
-                    : "border-dashed border-ink-200 opacity-75"
+                  "group rounded-xl border bg-surface p-4 transition-colors",
+                  m.enabled ? "border-brand-200" : "border-line"
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -509,8 +501,11 @@ export default function Models() {
                         {TYPE_META[m.type].label}
                       </span>
                     </div>
-                    <p className="mt-1 truncate font-mono text-[10.5px] text-ink-400">
-                      {m.protocol} · {m.base_url}
+                    <p
+                      className="mt-1 truncate text-[12px] text-ink-500"
+                      title={m.base_url}
+                    >
+                      {m.base_url}
                     </p>
                   </div>
                   <Toggle
@@ -529,24 +524,29 @@ export default function Models() {
                   <span className="chip bg-paper-200 font-mono text-ink-600">
                     {m.model_name}
                   </span>
-                  <span className="chip bg-paper-200 font-mono text-ink-400">
-                    temp {m.temperature}
-                  </span>
-                  <span className="chip bg-paper-200 font-mono text-ink-400">
-                    {m.timeout_ms / 1000}s 超时
-                  </span>
-                  {m.api_key && (
-                    <span className="chip bg-paper-200 font-mono text-ink-400">
-                      key ••••{m.api_key.slice(-4)}
-                    </span>
-                  )}
                 </div>
+                <details className="mt-2 text-[12px] text-ink-500">
+                  <summary className="cursor-pointer">
+                    连接参数{m.api_key ? " · 已配置密钥" : ""}
+                  </summary>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className="chip bg-paper-200 text-ink-600">
+                      {m.protocol}
+                    </span>
+                    <span className="chip bg-paper-200 text-ink-600">
+                      temp {m.temperature}
+                    </span>
+                    <span className="chip bg-paper-200 font-mono text-ink-400">
+                      {m.timeout_ms / 1000}s 超时
+                    </span>
+                  </div>
+                </details>
                 {t && !t.running && (
                   <p
                     className={cx(
                       "mt-2.5 flex items-start gap-1.5 rounded-lg px-2.5 py-2 text-[11px] font-medium leading-snug",
                       t.ok
-                        ? "bg-brand-50 text-brand-800"
+                        ? "bg-ok-bg text-ok"
                         : "bg-danger-100 text-danger-700"
                     )}
                   >
@@ -598,13 +598,18 @@ export default function Models() {
             );
           })}
         </div>
-        <p className="mt-3 text-[11px] leading-relaxed text-ink-300">
-          提示：本地 Ollama 需先在本机运行{" "}
-          <span className="font-mono text-ink-400">ollama serve</span>{" "}
-          并拉取模型（如{" "}
-          <span className="font-mono text-ink-400">ollama pull qwen2.5:7b</span>
-          ）。API Key 仅保存在本机，不在日志与界面明文展示。
-        </p>
+        <details className="mt-3 text-[12px] text-ink-500">
+          <summary className="cursor-pointer">本地模型连接帮助</summary>
+          <p className="mt-2 leading-relaxed">
+            提示：本地 Ollama 需先在本机运行{" "}
+            <span className="font-mono text-ink-400">ollama serve</span>{" "}
+            并拉取模型（如{" "}
+            <span className="font-mono text-ink-400">
+              ollama pull qwen2.5:7b
+            </span>
+            ）。API Key 仅保存在本机，不在日志与界面明文展示。
+          </p>
+        </details>
       </section>
 
       {formOpen && (

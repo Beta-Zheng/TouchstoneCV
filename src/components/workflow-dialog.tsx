@@ -111,9 +111,7 @@ export default function WorkflowDialog({
       <ModalHeader
         title={TITLES[tool]}
         sub={
-          tool === "module"
-            ? "先选择条目和动作；外部模型仍逐条确认，建议不会自动写入"
-            : undefined
+          tool === "module" ? "建议需确认后写入；外部调用逐次确认。" : undefined
         }
         onClose={onClose}
       />
@@ -121,7 +119,7 @@ export default function WorkflowDialog({
         {tool === "target" && (
           <div className="flex flex-col gap-3">
             <p className="text-[12px] text-ink-500">
-              会复制当前简历并关联主简历。岗位版本独立编辑，主简历更新不会自动覆盖岗位内容。
+              创建独立副本，主简历保留。
             </p>
             <label className="text-[12px]">
               公司
@@ -166,10 +164,13 @@ export default function WorkflowDialog({
         )}
         {tool === "versions" && (
           <>
-            <p className="mb-3 text-[12px] text-ink-500">
-              保留最近 20 份近期快照，初始及投递关联快照长期保留。停止编辑 30
-              秒或离开编辑页时自动记录有变化的内容；恢复前保存当前版本。
-            </p>
+            <details className="mb-3 text-[12px] text-ink-500">
+              <summary className="cursor-pointer">版本保存规则</summary>
+              <p className="mt-2">
+                保留最近 20 份近期快照，初始及投递关联快照长期保留。停止编辑 30
+                秒或离开编辑页时自动记录有变化的内容；恢复前保存当前版本。
+              </p>
+            </details>
             <div className="mb-4 flex gap-2">
               <input
                 className="field-input"
@@ -419,12 +420,11 @@ export default function WorkflowDialog({
         {tool === "letter" && (
           <div className="flex flex-col gap-3">
             <p className="text-[12px] text-ink-500">
-              本地辅助草稿：按 JD
-              词项排序可见经历，由你选择证据与补充动机，再重新生成。不会自动发送。
+              选择经历，补充动机，再生成草稿。
             </p>
             <p className="text-[11px] text-ink-500">
-              当前草稿：{letter.locale === "en" ? "英文" : "中文"}
-              。切换简历版式不会改写已保存求职信，重新生成时采用当前版式语言。
+              当前草稿：{letter.locale === "en" ? "英文" : "中文"}·
+              更换版式不会翻译已有内容。
             </p>
             <label className="text-[12px]">
               为何应聘这家公司（英文信请填写英文）
