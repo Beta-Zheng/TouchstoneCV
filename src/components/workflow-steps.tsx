@@ -43,7 +43,7 @@ export default function WorkflowSteps({
           求职流程 · 下一步：
           <span className="font-medium text-ink-800">{labels[next]}</span>
           {issues.length > 0 && (
-            <span className="ml-2 text-[11px]">{issues.length} 项待核对</span>
+            <span className="ml-2 text-[12px]">{issues.length} 项待核对</span>
           )}
         </summary>
         <div className="mt-2 flex flex-wrap gap-1 pb-1">
@@ -60,7 +60,7 @@ export default function WorkflowSteps({
             >
               {i + 1}. {label}
               {complete[i] && (
-                <span className="ml-1 text-[10px] text-ink-400">
+                <span className="ml-1 text-[12px] text-ink-400">
                   {i === 3 ? "已准备" : "已有内容"}
                 </span>
               )}

@@ -20,7 +20,8 @@ import { openUsageGuide } from "./lib/onboarding";
 import { hashView } from "./lib/navigation";
 import {
   IconAlert,
-  IconClipboard,
+  IconDashboard,
+  IconSend,
   IconCpu,
   IconDatabase,
   IconMenu,
@@ -62,13 +63,13 @@ class ErrorBoundary extends Component<
                 >
                   页面渲染出错了
                 </h1>
-                <p className="text-[11px]" style={{ color: "#6E7076" }}>
+                <p className="text-[12px]" style={{ color: "#6E7076" }}>
                   应用遇到了意外错误，你的本地数据不会丢失
                 </p>
               </div>
             </div>
             <pre
-              className="mt-4 max-h-32 overflow-auto rounded-lg p-3 font-mono text-[11px] leading-relaxed"
+              className="mt-4 max-h-32 overflow-auto rounded-lg p-3 font-mono text-[12px] leading-relaxed"
               style={{ background: "#F4F4F0", color: "#B91C1C" }}
             >
               {this.state.error.message || String(this.state.error)}
@@ -106,7 +107,7 @@ function NavItem({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cx(
-        "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
+        "group relative flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300",
         active
           ? "bg-brand-50 text-brand-700"
           : "text-ink-500 hover:bg-subtle hover:text-ink-900"
@@ -180,25 +181,25 @@ function AppShell() {
     {
       key: "home",
       label: "工作台",
-      icon: <IconClipboard size={16} />,
+      icon: <IconDashboard size={20} />,
       view: { name: "home" },
     },
     {
       key: "models",
       label: "模型与隐私",
-      icon: <IconCpu size={16} />,
+      icon: <IconCpu size={20} />,
       view: { name: "models" },
     },
     {
       key: "settings",
       label: "数据管理",
-      icon: <IconDatabase size={16} />,
+      icon: <IconDatabase size={20} />,
       view: { name: "settings" },
     },
     {
       key: "applications",
       label: "投递记录",
-      icon: <IconClipboard size={16} />,
+      icon: <IconSend size={20} />,
       view: { name: "applications" },
     },
   ];
@@ -213,7 +214,7 @@ function AppShell() {
   return (
     <div id="app-root" className="flex h-screen overflow-hidden bg-page">
       {/* 移动端顶栏（<md）：汉堡按钮 + 品牌 */}
-      <div className="fixed inset-x-0 top-0 z-40 flex items-center gap-2.5 border-b border-line bg-surface/95 px-3 py-2 backdrop-blur md:hidden">
+      <div className="fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-2.5 border-b border-line bg-surface/95 px-3 py-2 backdrop-blur md:hidden">
         <button
           onClick={() => setDrawerOpen(true)}
           className="tool-btn"
@@ -222,7 +223,7 @@ function AppShell() {
           <IconMenu size={18} />
         </button>
         <Logo size={28} />
-        <span className="font-display text-[14px] font-black leading-none text-ink-900">
+        <span className="text-[16px] font-semibold leading-none text-ink-900">
           TouchstoneCV
         </span>
       </div>
@@ -250,7 +251,7 @@ function AppShell() {
             <p className="text-[16px] font-bold leading-5 tracking-tight text-ink-900">
               TouchstoneCV
             </p>
-            <p className="mt-0.5 text-[11px] leading-4 text-ink-400">
+            <p className="mt-0.5 text-[12px] leading-4 text-ink-400">
               简历工作台
             </p>
           </div>
@@ -276,13 +277,13 @@ function AppShell() {
           <NavItem
             active={false}
             label="搜索命令"
-            icon={<IconSearch size={16} />}
+            icon={<IconSearch size={20} />}
             onClick={() => {
               setDrawerOpen(false);
               openCommandPalette();
             }}
             trailing={
-              <kbd className="hidden rounded border border-line px-1.5 py-0.5 text-[10px] font-normal leading-4 text-ink-400 md:block">
+              <kbd className="hidden rounded border border-line px-1.5 py-0.5 text-[12px] font-normal leading-4 text-ink-400 md:block">
                 {typeof navigator !== "undefined" &&
                 /Mac/i.test(navigator.platform)
                   ? "⌘ K"
@@ -293,7 +294,7 @@ function AppShell() {
           <NavItem
             active={false}
             label="使用指南"
-            icon={<IconBookOpen size={16} />}
+            icon={<IconBookOpen size={20} />}
             onClick={() => {
               setDrawerOpen(false);
               openUsageGuide();
@@ -303,7 +304,7 @@ function AppShell() {
 
         <div className="mt-auto shrink-0 px-3 pb-3 pt-6">
           <div className="rounded-xl bg-subtle px-3 py-3 ring-1 ring-line">
-            <p className="flex items-center gap-1.5 text-[11px] font-bold text-ink-900">
+            <p className="flex items-center gap-1.5 text-[12px] font-bold text-ink-900">
               <IconShield
                 size={13}
                 className={
@@ -312,12 +313,12 @@ function AppShell() {
               />
               {privacy.allowExternal ? "外部模型已开启" : "本地模式"}
             </p>
-            <p className="mt-1 text-[10px] leading-relaxed text-ink-500">
+            <p className="mt-1 text-[12px] leading-relaxed text-ink-500">
               {privacy.allowExternal
                 ? "本地模型不可用时可能发起外部请求，调用前会提示。"
                 : "数据不出本机，不发起任何外部请求。"}
             </p>
-            <div className="mt-2 flex items-center gap-1.5 font-mono text-[9.5px] text-ink-500">
+            <div className="mt-2 flex items-center gap-1.5 font-mono text-[12px] text-ink-500">
               <span
                 className={cx(
                   "h-1.5 w-1.5 rounded-full",
@@ -333,7 +334,7 @@ function AppShell() {
       </nav>
 
       {/* Switch content immediately; entry animation does not block navigation. */}
-      <main className="mt-11 min-w-0 flex-1 overflow-hidden md:mt-0">
+      <main className="mt-16 min-w-0 flex-1 overflow-hidden md:mt-0">
         <motion.div
           key={view.name}
           initial={{ opacity: 0, y: 10 }}

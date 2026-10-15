@@ -235,7 +235,7 @@ export default function WorkflowDialog({
                 <p className="mb-2 text-[12px] font-bold">
                   {compared.label} → 当前简历（文本差异）
                 </p>
-                <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-paper-50 p-3 text-[11px]">
+                <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-paper-50 p-3 text-[12px]">
                   {diffLines(
                     resumeText(compared.resume).split("\n"),
                     resumeText(resume).split("\n")
@@ -259,7 +259,7 @@ export default function WorkflowDialog({
                     </div>
                   ))}
                 </pre>
-                <p className="mt-2 text-[11px] text-ink-500">
+                <p className="mt-2 text-[12px] text-ink-500">
                   模板：{compared.resume.template_id} → {resume.template_id} ·
                   字号：{compared.resume.theme.font_size} →{" "}
                   {resume.theme.font_size} · 语言：
@@ -273,7 +273,7 @@ export default function WorkflowDialog({
           <div className="flex flex-col gap-3">
             <label className="text-[12px]">
               选择模块
-              <select
+              <select data-ui-select
                 className="field-input mt-1"
                 value={sectionId}
                 onChange={(e) => {
@@ -297,7 +297,7 @@ export default function WorkflowDialog({
             </label>
             <label className="text-[12px]">
               优化动作
-              <select
+              <select data-ui-select
                 className="field-input mt-1"
                 value={action}
                 onChange={(e) => setAction(e.target.value as AIAction)}
@@ -355,7 +355,7 @@ export default function WorkflowDialog({
                   ["耗时 / 时间", timeFact, setTimeFact],
                   ["结果", resultFact, setResultFact],
                 ].map(([name, value, setter]) => (
-                  <label key={String(name)} className="mb-2 block text-[11px]">
+                  <label key={String(name)} className="mb-2 block text-[12px]">
                     {String(name)}
                     <input
                       className="field-input mt-1"
@@ -422,7 +422,7 @@ export default function WorkflowDialog({
             <p className="text-[12px] text-ink-500">
               选择经历，补充动机，再生成草稿。
             </p>
-            <p className="text-[11px] text-ink-500">
+            <p className="text-[12px] text-ink-500">
               当前草稿：{letter.locale === "en" ? "英文" : "中文"}·
               更换版式不会翻译已有内容。
             </p>
@@ -451,7 +451,7 @@ export default function WorkflowDialog({
                 选择最多三条经历证据（按 JD 相关词项排序）
               </legend>
               {availableEvidence.map((text, i) => (
-                <label key={i} className="mb-2 flex gap-2 text-[11px]">
+                <label key={i} className="mb-2 flex gap-2 text-[12px]">
                   <input
                     type="checkbox"
                     checked={letterEvidence.includes(text)}
@@ -554,7 +554,7 @@ export default function WorkflowDialog({
                   </div>
                 </div>
                 <p className="text-[13px] font-bold">{t.name}</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-ink-500">
+                <p className="mt-1 text-[12px] leading-relaxed text-ink-500">
                   {t.description}
                 </p>
               </button>
