@@ -15,10 +15,12 @@ export default function ExportDialog({
   resume,
   onClose,
   onLocate,
+  onAdjustLayout,
 }: {
   resume: Resume;
   onClose: () => void;
   onLocate: (sectionId: string, blockId?: string) => void;
+  onAdjustLayout: () => void;
 }) {
   const app = useAppSlice(
     "resumes",
@@ -30,7 +32,6 @@ export default function ExportDialog({
     "models",
     "privacy",
     "toast",
-    "setTheme",
     "captureSnapshot"
   );
   const [plan, setPlan] = useState<{
@@ -156,9 +157,10 @@ export default function ExportDialog({
           )}
           <Btn
             className="mt-3"
-            onClick={() => app.setTheme(resume.id, { density: "compact" })}
+            disabled={busy}
+            onClick={onAdjustLayout}
           >
-            切换紧凑布局
+            调整篇幅
           </Btn>
         </aside>
         <div className="min-w-0">

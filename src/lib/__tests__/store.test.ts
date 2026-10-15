@@ -29,6 +29,21 @@ const applicationFixture = () => ({
 });
 
 describe("版本与投递记录", () => {
+  it("篇幅副本返回独立ID，隐藏内容可由初始快照恢复且原稿不变", () => {
+    const state = useApp.getState();
+    const source = structuredClone(state.resumes.find(r => r.id === "resume_test")!);
+    const id = state.duplicateResume(source.id)!;
+    expect(id).not.toBe(source.id);
+    state.setTheme(id, { density: "compact" });
+    state.patchBlock(id, "section_test", "block_test", { visible: false });
+    state.captureSnapshot(id, "篇幅调整完成");
+    const snapshots = useApp.getState().snapshots.filter(s => s.resume_id === id);
+    expect(snapshots.length).toBeGreaterThanOrEqual(2);
+    const initial = snapshots.find(s => s.kind === "initial")!;
+    state.restoreSnapshot(initial.id);
+    expect(useApp.getState().resumes.find(r => r.id === id)?.data).toEqual(source.data);
+    expect(useApp.getState().resumes.find(r => r.id === source.id)).toEqual(source);
+  });
   it("选择主简历栏目更新保留岗位职位、未选内容和投递快照", () => {
     const state = useApp.getState();
     const job = state.createJobVersion(

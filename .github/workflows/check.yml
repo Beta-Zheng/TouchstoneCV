@@ -17,6 +17,8 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:storage
+      - run: npm run test:layout
+      - run: npm run test:navigation
       - run: sudo apt-get update && sudo apt-get install -y libreoffice-writer poppler-utils fonts-noto-cjk
       - run: npm run test:exports
         env:

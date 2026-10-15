@@ -93,7 +93,7 @@ interface AppState {
   deleteResume: (id: string) => void;
   archiveResume: (id: string, archived: boolean) => void;
   mergeSource: (id: string, sections: string[], basic: boolean) => boolean;
-  duplicateResume: (id: string) => void;
+  duplicateResume: (id: string) => string | undefined;
   setResumeOptions: (
     id: string,
     patch: Pick<Partial<Resume>, "locale" | "audience">
@@ -535,6 +535,7 @@ export const useApp = create<AppState>()(
         }));
         get().captureSnapshot(copy.id, "创建简历副本", "initial");
         get().toast("ok", "已复制简历");
+        return copy.id;
       },
 
       renameResume: (id, title) =>

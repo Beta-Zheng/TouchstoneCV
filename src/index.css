@@ -334,6 +334,46 @@ body { font-size: 14px; }
   orphans: 2;
   widows: 2;
 }
+.interactive-preview :is([data-resume-entry], section[data-resume-section] > h2, header[data-resume-section]) { position: relative; }
+.preview-edit-link {
+  position: absolute; top: 0; right: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border: 1px solid var(--color-line-strong);
+  border-radius: 8px; background: var(--color-surface); color: var(--color-brand-700);
+  box-shadow: 0 2px 8px rgb(27 28 31 / .1); cursor: pointer;
+  opacity: 0; pointer-events: none;
+}
+.interactive-preview :is([data-resume-entry], h2, header):hover > .preview-edit-link,
+.preview-edit-link:focus-visible { opacity: 1; pointer-events: auto; }
+[data-preview-current="true"]::before {
+  content: ""; position: absolute; left: -8px; top: 0; bottom: 0;
+  width: 2px; border-radius: 2px; background: rgb(99 102 241 / .55);
+  pointer-events: none;
+}
+@media (pointer: coarse) { .preview-edit-link { width: 44px; height: 44px; } }
+[data-preview-location="true"],
+[data-editor-location="true"] > [data-editor-location-heading],
+[data-editor-location="true"] > section > [data-editor-location-heading] {
+  animation: location-wash 1.2s ease-out;
+}
+/* Programmatic card focus is a navigation destination, not a keyboard control. */
+.editor-content :is([data-section-id], [data-block-id])[tabindex="-1"]:focus-visible { outline: none; }
+@keyframes location-wash {
+  0%, 20% { background-color: rgb(99 102 241 / .09); }
+  100% { background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-preview-location="true"],
+  [data-editor-location="true"] > [data-editor-location-heading],
+  [data-editor-location="true"] > section > [data-editor-location-heading] {
+    animation: none; background-color: rgb(99 102 241 / .06);
+  }
+}
+@media print {
+  [data-preview-location], [data-editor-location-heading] { animation: none !important; background-color: transparent !important; }
+  [data-preview-current]::before { display: none !important; }
+  .preview-edit-link { display: none !important; }
+}
 
 /* ---------- print / PDF export ---------- */
 .print-only { display: none; }
