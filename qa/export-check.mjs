@@ -150,6 +150,7 @@ try {
         });
         document.querySelectorAll("[data-resume-section]").forEach((el) => {
           const h = el.querySelector("h2");
+          if (!h) return; // Basic information is a header, measured separately below.
           sections[el.dataset.resumeSection] =
             h.getBoundingClientRect().height +
             parseFloat(getComputedStyle(h).marginBottom) +

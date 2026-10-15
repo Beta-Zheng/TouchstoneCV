@@ -31,6 +31,7 @@ import { useAppSlice, useResume } from "../lib/store";
 import { SectionCard } from "../components/blocks";
 import { AIPanel, JDPanel, OutlinePanel } from "../components/panels";
 import ResumePreview from "../components/resume-preview";
+import OnePageDialog from "../components/one-page-dialog";
 import WorkflowSteps from "../components/workflow-steps";
 import SourceUpdate from "../components/source-update";
 import ExportDialog from "../components/export-dialog";
@@ -41,6 +42,7 @@ import { ApplicationForm } from "./Applications";
 import type { PageLayout } from "../lib/pagination";
 import { completion, inspectResume } from "../lib/workflow";
 import { Btn, Modal, ModalHeader, SaveIndicator } from "../components/ui";
+import { flashLocation, scrollInPane, type ResumeLocation } from "../lib/preview-navigation";
 import {
   IconBookOpen,
   IconCheck,
@@ -97,12 +99,14 @@ function SortableSection({
   onRequestAI,
   highlight,
   onHover,
+  revealLocation,
 }: {
   resume: Resume;
   section: Section;
   onRequestAI: (s: string, b: string, a: AIAction) => void;
   highlight?: boolean;
   onHover?: (id: string | null) => void;
+  revealLocation?: ResumeLocation | null;
 }) {
   const {
     attributes,
@@ -116,6 +120,7 @@ function SortableSection({
     <div
       ref={setNodeRef}
       data-section-id={section.section_id}
+      tabIndex={-1}
       onMouseEnter={() => onHover?.(section.section_id)}
       onMouseLeave={() => onHover?.(null)}
       style={{
@@ -137,6 +142,7 @@ function SortableSection({
         resume={resume}
         section={section}
         onRequestAI={onRequestAI}
+        revealLocation={revealLocation}
         dragHandle={
           <button
             {...attributes}
@@ -176,7 +182,15 @@ export default function Editor({ resumeId }: { resumeId: string }) {
     sectionId: string;
     blockId: string;
   } | null>(null);
+  const [previewLocation, setPreviewLocation] = useState<ResumeLocation | null>(null);
+  const [revealLocation, setRevealLocation] = useState<ResumeLocation | null>(null);
+  const navigationId = useRef(0);
+  const suppressPreviewSync = useRef(false);
+  const editorHighlight = useRef<(() => void) | null>(null);
+  const lastPreviewRequest = useRef("");
+  useEffect(() => () => editorHighlight.current?.(), []);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [onePageOpen, setOnePageOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<
     "content" | "layout" | "preview"
   >("content");
@@ -292,23 +306,50 @@ export default function Editor({ resumeId }: { resumeId: string }) {
     app.toast("ok", "模块顺序已更新，正在自动保存");
   };
 
-  const locate = (sectionId: string, blockId?: string) => {
-    setEditorMode("content");
+  const syncPreview = (event: React.SyntheticEvent) => {
+    if (suppressPreviewSync.current || editorMode !== "layout") return;
+    const element = event.target as Element;
+    if (element.closest('button,a,select,[role="menu"],input[type="checkbox"],input[type="radio"],input[type="range"],input[type="file"]')) return;
+    const sectionId = element.closest<HTMLElement>("[data-section-id]")?.dataset.sectionId;
+    if (!sectionId) return;
+    const blockId = element.closest<HTMLElement>("[data-block-id]")?.dataset.blockId;
+    const key = JSON.stringify([sectionId, blockId]);
+    if (lastPreviewRequest.current === key) return;
+    lastPreviewRequest.current = key;
+    setPreviewLocation({ sectionId, blockId, requestId: ++navigationId.current });
+  };
+  const locate = (sectionId: string, blockId?: string, fromPreview = false) => {
+    if (fromPreview) setEditorMode(canSplit ? "layout" : "content");
+    else setEditorMode("content");
     setMobilePanel("none");
     setActiveSection(sectionId);
-    requestAnimationFrame(() => {
-      const card = scrollRef.current?.querySelector<HTMLElement>(
-        `[data-section-id="${sectionId}"]`
-      );
+    setRevealLocation({ sectionId, blockId, requestId: ++navigationId.current });
+    if (fromPreview) {
+      lastPreviewRequest.current = JSON.stringify([sectionId, blockId]);
+      setPreviewLocation({ sectionId, blockId, requestId: ++navigationId.current, scroll: false });
+    }
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const card = Array.from(scrollRef.current?.querySelectorAll<HTMLElement>("[data-section-id]") ?? [])
+        .find(el => el.dataset.sectionId === sectionId);
       const entry = blockId
-        ? card?.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`)
+        ? Array.from(card?.querySelectorAll<HTMLElement>("[data-block-id]") ?? []).find(el => el.dataset.blockId === blockId)
         : null;
-      (entry ?? card)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const target = entry ?? card;
+      if (!target || !scrollRef.current) return;
+      scrollInPane(target, scrollRef.current, 16);
+      editorHighlight.current?.();
+      editorHighlight.current = flashLocation(target, "editor");
+      if (fromPreview) {
+        suppressPreviewSync.current = true;
+        target.focus({ preventScroll: true });
+        requestAnimationFrame(() => { suppressPreviewSync.current = false; });
+        return;
+      }
       const field = (entry ?? card)?.querySelector<HTMLElement>(
         "input,textarea,[contenteditable]"
       );
       field?.focus({ preventScroll: true });
-    });
+    }));
   };
 
   return (
@@ -428,6 +469,11 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           <option value="source">导入原文</option>
           {parentResume && <option value="parent">返回主简历</option>}
         </select>
+        <Btn size="sm" onClick={() => setOnePageOpen(true)}>篇幅调整</Btn>
+        {editorMode === "layout" && <Btn size="sm" variant="ghost" disabled={!previewLocation}
+          onClick={() => { if (previewLocation) setPreviewLocation({ ...previewLocation, scroll: true, requestId: ++navigationId.current }); }}>
+          定位预览
+        </Btn>}
         <span
           className="ml-auto text-[12px] text-ink-500"
           title={`基础字段完成度 ${completion(resume)}%，仅表示填写情况`}
@@ -579,6 +625,8 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                     strategy={verticalListSortingStrategy}
                   >
                     <div
+                      onClickCapture={syncPreview}
+                      onFocusCapture={syncPreview}
                       className={cx(
                         "editor-content mx-auto flex w-full min-w-0 flex-col gap-4 pb-10",
                         editorMode === "content" && "max-w-3xl"
@@ -594,6 +642,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                             onRequestAI={onRequestAI}
                             highlight={current === s.section_id}
                             onHover={setHoverSection}
+                            revealLocation={revealLocation}
                           />
                         );
                       })}
@@ -664,7 +713,9 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 )}
                 data-testid="live-preview"
               >
-                <ResumePreview resume={resume} onLayout={setLivePages} />
+                <ResumePreview resume={resume} onLayout={setLivePages}
+                  location={previewLocation}
+                  onLocate={(sectionId, blockId) => locate(sectionId, blockId, true)} />
               </div>
             )}
           </div>
@@ -740,6 +791,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
         )}
       </div>
 
+      {onePageOpen && <OnePageDialog resume={resume} onClose={() => setOnePageOpen(false)} onEdit={(sectionId, blockId) => locate(sectionId, blockId)} />}
       <Modal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -945,7 +997,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
             )}
             {settingsTab === "layout" && (
               <div>
-                <MenuSection title="密度（内容多选紧凑）">
+                <MenuSection title="纸张密度">
                   <div className="flex gap-1 rounded-lg bg-paper-100 p-0.5">
                     {(
                       [
@@ -956,6 +1008,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                     ).map(([k, label]) => (
                       <button
                         key={k}
+                        aria-pressed={(resume.theme.density ?? "medium") === k}
                         onClick={() => app.setTheme(resumeId, { density: k })}
                         className={cx(
                           "flex-1 rounded-md px-2 py-1 text-[12px] font-medium transition",
@@ -968,6 +1021,8 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                       </button>
                     ))}
                   </div>
+                  <p className="mt-2 text-[12px] text-ink-500">调整预览与导出中的间距和行高。</p>
+                  <Btn size="sm" className="mt-2" onClick={() => { setSettingsOpen(false); setOnePageOpen(true); }}>智能调整为 1 / 2 页</Btn>
                 </MenuSection>
                 {resume.template_id !== "classic_ats" && (
                   <MenuSection title="条目标题排布">
@@ -1099,6 +1154,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           resume={resume}
           onClose={() => setPreviewOpen(false)}
           onLocate={locate}
+          onAdjustLayout={() => { setPreviewOpen(false); setOnePageOpen(true); }}
         />
       )}
       {tool && (

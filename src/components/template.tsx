@@ -214,7 +214,7 @@ function EntryBody({ block, style }: { block: Block; style: TStyle }) {
         </p>
       )}
       {block.description && (
-        <p className={cx("mt-[var(--entry-gap)] whitespace-pre-line text-[0.92em] leading-relaxed", isATS ? "text-[#222]" : "text-ink-700")}>{renderRich(block.description)}</p>
+        <p className={cx("mt-[var(--entry-gap)] whitespace-pre-line text-[0.92em] leading-[var(--lh)]", isATS ? "text-[#222]" : "text-ink-700")}>{renderRich(block.description)}</p>
       )}
       {bullets.length > 0 && <BulletList bullets={bullets} marks={block.bullet_marks} bulletStyle={bulletStyle} color={color} isATS={isATS} />}
       {block.skills.length > 0 &&
@@ -388,7 +388,7 @@ function AcademicSectionBlock({ section, color, headerLayout, bulletStyle }: { s
             </p>
           )}
           {b.description && (
-            <p className="mt-[var(--entry-gap)] whitespace-pre-line text-[0.92em] leading-relaxed text-ink-700">{renderRich(b.description)}</p>
+            <p className="mt-[var(--entry-gap)] whitespace-pre-line text-[0.92em] leading-[var(--lh)] text-ink-700">{renderRich(b.description)}</p>
           )}
           {b.bullets.filter(Boolean).length > 0 && <BulletList bullets={b.bullets.filter(Boolean)} marks={b.bullet_marks} bulletStyle={bs} color={color} />}
           {b.skills.length > 0 && (
@@ -426,7 +426,7 @@ function AcademicPhotoSheet({ resume, forPrint }: { resume: Resume; forPrint?: b
       style={{ fontSize: `${fs}px`, lineHeight: "var(--lh)", fontFamily: fontStack(resume.theme.font_family), color: "#222", ...densityVars(resume.theme.density) }}
     >
       {basicVisible && (
-        <header className="mb-[var(--sec-gap)] flex items-center gap-5">
+        <header data-resume-section={basicSection?.section_id} className="mb-[var(--sec-gap)] flex items-center gap-5">
           {/* 头像：矩形无边框，基准约 1 寸（25×35mm）照片比例，尺寸随 theme.avatar_scale 缩放；缺省时不占位 */}
           {resume.data.avatar_url && (
             <div className="shrink-0 overflow-hidden rounded-sm bg-paper-100" style={avatarBox(resume.theme.avatar_scale, 90, 126)}>
@@ -494,7 +494,7 @@ export function ResumeSheet({ resume, forPrint }: { resume: Resume; forPrint?: b
   const headerEl =
     basicVisible && (info.name || info.title || contacts.length > 0) ? (
       isATS ? (
-        <header className="mb-[var(--sec-gap)] text-center">
+        <header data-resume-section={basicSection?.section_id} className="mb-[var(--sec-gap)] text-center">
           <h1 className="text-[2.1em] font-bold leading-tight tracking-wide">{renderRich(info.name || "未命名")}</h1>
           {info.title && <p className="mt-0.5 text-[1.05em] font-medium">{renderRich(info.title)}</p>}
           {contacts.length > 0 && (
@@ -509,7 +509,7 @@ export function ResumeSheet({ resume, forPrint }: { resume: Resume; forPrint?: b
           )}
         </header>
       ) : (
-        <header className="mb-[var(--sec-gap)]">
+        <header data-resume-section={basicSection?.section_id} className="mb-[var(--sec-gap)]">
           <div className="flex items-end justify-between gap-4">
             <div>
               <h1 className="font-[700] leading-tight" style={{ fontSize: "2.3em", color: "#101817", letterSpacing: "-0.01em" }}>

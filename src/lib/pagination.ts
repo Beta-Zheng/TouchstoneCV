@@ -5,6 +5,8 @@ export interface PageLayout {
   resume: Resume;
   oversized: boolean;
   height: number;
+  usedHeight?: number;
+  capacity?: number;
 }
 export function paginateResume(
   resume: Resume,
@@ -42,6 +44,8 @@ export function paginateResume(
       },
       oversized,
       height: 1123 + Math.max(0, used - capacity),
+      usedHeight: used,
+      capacity,
     });
     sections = [];
     used = 0;

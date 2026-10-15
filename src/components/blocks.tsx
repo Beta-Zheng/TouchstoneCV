@@ -38,6 +38,7 @@ import {
   IconX,
 } from "./icons";
 import { Confirm, useActionMenu } from "./ui";
+import type { ResumeLocation } from "../lib/preview-navigation";
 
 /* ---------------- 基础表单件 ---------------- */
 
@@ -675,6 +676,7 @@ export function BlockCard({
   onRequestAI,
   bulletStyle,
   onBulletStyleChange,
+  revealLocation,
 }: {
   resume: Resume;
   section: Section;
@@ -685,6 +687,7 @@ export function BlockCard({
   /** 该模块解析后的要点样式（模块级设置 → 全局默认） */
   bulletStyle: BulletStyleKey;
   onBulletStyleChange: (v: BulletStyleKey) => void;
+  revealLocation?: ResumeLocation | null;
 }) {
   const { patchBlock, deleteBlock, moveBlock } = useAppSlice(
     "patchBlock",
@@ -692,6 +695,9 @@ export function BlockCard({
     "moveBlock"
   );
   const [open, setOpen] = useState(true);
+  useEffect(() => {
+    if (revealLocation?.sectionId === section.section_id && revealLocation.blockId === block.block_id) setOpen(true);
+  }, [revealLocation, section.section_id, block.block_id]);
   const [confirmDel, setConfirmDel] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -711,11 +717,13 @@ export function BlockCard({
   return (
     <div
       data-block-id={block.block_id}
+      tabIndex={-1}
       className={cx(
         "group border-b border-line bg-transparent last:border-b-0"
       )}
     >
       <div
+        data-editor-location-heading
         className="flex flex-wrap cursor-pointer items-center gap-2 px-3 py-2"
         onClick={() => setOpen((v) => !v)}
       >
@@ -1144,11 +1152,13 @@ export function SectionCard({
   section,
   onRequestAI,
   dragHandle,
+  revealLocation,
 }: {
   resume: Resume;
   section: Section;
   onRequestAI: (sectionId: string, blockId: string, action: AIAction) => void;
   dragHandle?: ReactNode;
+  revealLocation?: ResumeLocation | null;
 }) {
   const {
     addBlock,
@@ -1183,7 +1193,7 @@ export function SectionCard({
           : "border-dashed border-ink-200 opacity-70"
       )}
     >
-      <header className="flex items-center gap-2 border-b border-ink-100 px-3 py-2.5">
+      <header data-editor-location-heading className="flex items-center gap-2 border-b border-ink-100 px-3 py-2.5">
         {dragHandle}
         {editingTitle ? (
           <input
@@ -1278,6 +1288,7 @@ export function SectionCard({
               onRequestAI={onRequestAI}
               bulletStyle={bulletStyle}
               onBulletStyleChange={setBulletStyle}
+              revealLocation={revealLocation}
             />
           ))}
           <button
