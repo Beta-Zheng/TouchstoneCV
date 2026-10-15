@@ -98,7 +98,7 @@ function OutlineItem({
           "cursor-grab touch-none transition active:cursor-grabbing",
           active && section.visible
             ? "text-brand-500"
-            : "text-ink-300 hover:text-ink-600"
+            : "text-ink-500 hover:text-ink-600"
         )}
         aria-label="拖动排序"
       >
@@ -119,7 +119,7 @@ function OutlineItem({
       >
         {section.title}
       </button>
-      <span className="font-mono text-[10px] text-ink-300">
+      <span className="font-mono text-[12px] text-ink-500">
         {section.type === "basic_info" ? "" : section.blocks.length}
       </span>
       <button
@@ -166,7 +166,7 @@ export function OutlinePanel({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-3 pb-2 pt-3">
-        <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-400">
+        <h2 className="text-[12px] font-bold  text-ink-400">
           栏目目录
         </h2>
         {onAdd && (
@@ -201,7 +201,7 @@ export function OutlinePanel({
           </ul>
         </SortableContext>
       </DndContext>
-      <p className="mt-auto border-t border-ink-100 px-3 py-2.5 text-[10.5px] leading-relaxed text-ink-300">
+      <p className="mt-auto border-t border-ink-100 px-3 py-2.5 text-[10.5px] leading-relaxed text-ink-500">
         顺序实时同步到预览与 PDF 导出；隐藏的模块保留位置但不渲染。
       </p>
     </div>
@@ -222,7 +222,7 @@ function FieldDiff({
   if (from === to) return null;
   return (
     <div className="rounded-md border border-ink-100 bg-white px-2.5 py-1.5 text-[12px]">
-      <span className="mr-2 font-mono text-[10px] uppercase tracking-wide text-ink-300">
+      <span className="mr-2 font-mono text-[12px] uppercase tracking-wide text-ink-500">
         {label}
       </span>
       {from && (
@@ -230,7 +230,7 @@ function FieldDiff({
           {from}
         </span>
       )}
-      {from && to && <span className="mx-1.5 text-ink-300">→</span>}
+      {from && to && <span className="mx-1.5 text-ink-500">→</span>}
       <span className="font-medium text-brand-700">{to || "（删除）"}</span>
     </div>
   );
@@ -253,12 +253,12 @@ function BulletsDiff({ from, to }: { from: string[]; to: string[] }) {
         >
           <span
             className={cx(
-              "mr-1.5 font-mono text-[10px]",
+              "mr-1.5 font-mono text-[12px]",
               op.kind === "add"
                 ? "text-brand-600"
                 : op.kind === "del"
                 ? "text-danger-600"
-                : "text-ink-300"
+                : "text-ink-500"
             )}
           >
             {op.kind === "add" ? "+" : op.kind === "del" ? "−" : "·"}
@@ -371,17 +371,17 @@ export function AIPanel({
       {queuedSuggestionCount > 0 && (
         <p
           role="status"
-          className="bg-brand-50 px-4 py-2 text-[11px] text-brand-700"
+          className="bg-brand-50 px-4 py-2 text-[12px] text-brand-700"
         >
           模块优化：还有 {queuedSuggestionCount}{" "}
           条等待生成；外部请求会逐条确认。
         </p>
       )}
       <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
-        <h2 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-400">
+        <h2 className="flex items-center gap-1.5 text-[12px] font-bold  text-ink-400">
           <IconWand size={13} className="text-brand-600" /> AI 建议
         </h2>
-        <span className="font-mono text-[10px] text-ink-300">
+        <span className="font-mono text-[12px] text-ink-500">
           {list.length} 条记录
         </span>
       </div>
@@ -423,13 +423,13 @@ export function AIPanel({
                 <span className="truncate text-[11.5px] text-ink-400">
                   · {blockTitle}
                 </span>
-                <span className="ml-auto shrink-0 font-mono text-[10px] text-ink-300">
+                <span className="ml-auto shrink-0 font-mono text-[12px] text-ink-500">
                   {fmtTime(active.created_at)}
                 </span>
               </div>
 
               <div className="flex flex-col gap-2.5 px-3.5 py-3">
-                <p className="flex items-center gap-1.5 text-[11px] text-ink-400">
+                <p className="flex items-center gap-1.5 text-[12px] text-ink-400">
                   <span className="sp-dot" />
                   <IconLock size={11} />
                   {active.engine === "rules" ? "规则检查" : "模型写作"}：
@@ -461,14 +461,14 @@ export function AIPanel({
                         <span className="shimmer ml-auto h-2 w-16 rounded-full" />
                       </div>
                     ))}
-                    <p className="mt-1 text-[11px] text-ink-300">
+                    <p className="mt-1 text-[12px] text-ink-500">
                       {active.engine === "rules"
                         ? "正在核对措辞与补充提示，原文保持不变…"
                         : "模型较慢时可能需要数十秒，期间可继续编辑…"}
                     </p>
                     <Btn
                       variant="ghost"
-                      className="h-7 text-[11px]"
+                      className="h-7 text-[12px]"
                       onClick={() => cancelSuggestion(active.id)}
                     >
                       取消生成
@@ -726,10 +726,10 @@ export function AIPanel({
                         <span className="shrink-0 text-[11.5px] font-medium text-ink-700">
                           {ACTION_LABELS[s.action].label}
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-[11px] text-ink-400">
+                        <span className="min-w-0 flex-1 truncate text-[12px] text-ink-400">
                           {s.original.title || "条目"}
                         </span>
-                        <span className="shrink-0 font-mono text-[9.5px] text-ink-300">
+                        <span className="shrink-0 font-mono text-[9.5px] text-ink-500">
                           {fmtTime(s.created_at)}
                         </span>
                       </button>
@@ -844,7 +844,7 @@ export function JDPanel({
   if (!jd || editingJD) {
     return (
       <div className="flex h-full flex-col px-4 pb-4 pt-3.5">
-        <h2 className="flex items-center gap-1.5 pb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-400">
+        <h2 className="flex items-center gap-1.5 pb-2 text-[12px] font-bold  text-ink-400">
           <IconTarget size={13} className="text-brand-600" /> 目标岗位 JD
         </h2>
         <p className="mb-2 text-[11.5px] leading-relaxed text-ink-400">
@@ -889,7 +889,7 @@ export function JDPanel({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
-        <h2 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-400">
+        <h2 className="flex items-center gap-1.5 text-[12px] font-bold  text-ink-400">
           <IconTarget size={13} className="text-brand-600" /> JD ·{" "}
           {st.job_title || "未命名岗位"}
         </h2>
@@ -928,7 +928,7 @@ export function JDPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        <p className="mb-3 rounded-lg bg-paper-100 p-2 text-[10px] leading-relaxed text-ink-500">
+        <p className="mb-3 rounded-lg bg-paper-100 p-2 text-[12px] leading-relaxed text-ink-500">
           本地规则匹配参考。分数不代表招聘通过率或真实 ATS
           结果；学历和年限的文本依据在下方单独核对。
         </p>
@@ -958,18 +958,18 @@ export function JDPanel({
               </span>
             ))
           ) : (
-            <span className="text-[11px] text-ink-300">未识别到技能词</span>
+            <span className="text-[12px] text-ink-500">未识别到技能词</span>
           )}
         </div>
         <details className="mb-3 rounded-lg border border-line p-2" open>
-          <summary className="cursor-pointer text-[11px] font-bold">
+          <summary className="cursor-pointer text-[12px] font-bold">
             JD 原句与简历依据
           </summary>
           <div className="mt-2 space-y-2">
             {jdEvidence(resume, jd).map((item) => (
               <div
                 key={item.term}
-                className="rounded bg-paper-50 p-2 text-[10px]"
+                className="rounded bg-paper-50 p-2 text-[12px]"
               >
                 <p className="font-bold">
                   {item.term} · {item.priority}
@@ -999,7 +999,7 @@ export function JDPanel({
         {qualificationEvidence(resume, jd).map((item) => (
           <div
             key={item.label}
-            className="mb-2 rounded-lg bg-paper-100 p-2 text-[10px]"
+            className="mb-2 rounded-lg bg-paper-100 p-2 text-[12px]"
           >
             <p className="font-bold">
               {item.label} · {item.status}
@@ -1011,7 +1011,7 @@ export function JDPanel({
         {!report ? (
           <div>
             {analysis && (
-              <p className="mb-2 text-[11px] text-seal-700">
+              <p className="mb-2 text-[12px] text-seal-700">
                 简历或 JD 已变化，请重新分析。
               </p>
             )}
@@ -1044,7 +1044,7 @@ export function JDPanel({
                 </div>
               </div>
             </details>
-            <p className="text-[10px] text-ink-400">
+            <p className="text-[12px] text-ink-400">
               兼容参考值：技能 35% + 关键词 25% + 经历词元 25% + 表达规则
               15%。该权重未经招聘结果验证，优先核对上方证据。
             </p>
@@ -1087,7 +1087,7 @@ export function JDPanel({
                     key={i}
                     className="flex items-start gap-2 rounded-lg border border-ink-100 bg-white px-3 py-2 text-[11.5px] leading-relaxed text-ink-600"
                   >
-                    <span className="mt-0.5 font-mono text-[10px] font-bold text-brand-600">
+                    <span className="mt-0.5 font-mono text-[12px] font-bold text-brand-600">
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     {s}
@@ -1097,7 +1097,7 @@ export function JDPanel({
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] text-ink-300">
+              <span className="font-mono text-[12px] text-ink-500">
                 分析于 {timeAgo(report.computed_at)} · 本地规则引擎
               </span>
               <Btn

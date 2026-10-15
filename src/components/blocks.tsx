@@ -37,7 +37,7 @@ import {
   IconUpload,
   IconX,
 } from "./icons";
-import { Confirm } from "./ui";
+import { Confirm, useActionMenu } from "./ui";
 
 /* ---------------- 基础表单件 ---------------- */
 
@@ -319,7 +319,7 @@ export function TagInput({
         }}
         onBlur={commit}
         placeholder={values.length ? "" : placeholder || "输入后回车添加"}
-        className="min-w-[110px] flex-1 bg-transparent text-[13px] outline-none placeholder:text-ink-300"
+        className="min-w-[110px] flex-1 bg-transparent text-[13px] outline-none placeholder:text-ink-500"
       />
     </div>
   );
@@ -335,7 +335,7 @@ function BulletMarker({
 }) {
   if (style === "ordered")
     return (
-      <span className="inline-block min-w-[1.2em] text-[11px] font-semibold tabular-nums">
+      <span className="inline-block min-w-[1.2em] text-[12px] font-semibold tabular-nums">
         {index + 1}.
       </span>
     );
@@ -364,20 +364,7 @@ function BulletStyleSelect({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useActionMenu(open, setOpen, ref);
   const cur =
     BULLET_STYLE_OPTIONS.find((o) => o.key === value) ??
     BULLET_STYLE_OPTIONS[0];
@@ -390,7 +377,7 @@ function BulletStyleSelect({
         aria-expanded={open}
         title="本模块要点列表样式（作用于该模块全部条目）"
         className={cx(
-          "inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[11px] font-medium transition",
+          "editor-action inline-flex items-center gap-1 rounded-sm border px-2 text-[13px] font-medium transition-colors",
           open
             ? "border-brand-400 bg-brand-50 text-brand-700"
             : "border-ink-200 bg-white text-ink-500 hover:border-brand-400 hover:text-brand-700"
@@ -408,16 +395,18 @@ function BulletStyleSelect({
       </button>
       {open && (
         <div
-          role="menu"
-          className="anim-scale-in absolute right-0 top-7 z-30 w-44 overflow-hidden rounded-lg border border-ink-200 bg-white p-1 shadow-xl shadow-ink-950/15"
+          role="menu" aria-label="成果列表样式"
+          className="app-menu absolute right-0 top-7 z-30 w-44 overflow-hidden rounded-lg border border-ink-200 bg-white p-1 shadow-xl shadow-ink-950/15"
         >
-          <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-400">
+          <p className="px-2 py-1 text-[12px] font-bold uppercase tracking-wider text-ink-400">
             成果列表样式
           </p>
           {BULLET_STYLE_OPTIONS.map((o) => (
             <button
               key={o.key}
               type="button"
+              role="menuitemradio" tabIndex={-1}
+              aria-checked={value === o.key}
               onClick={() => {
                 onChange(o.key);
                 setOpen(false);
@@ -429,7 +418,7 @@ function BulletStyleSelect({
                   : "text-ink-600 hover:bg-paper-100"
               )}
             >
-              <span className="w-4 font-mono text-[11px]">{o.sample}</span>
+              <span className="w-4 font-mono text-[12px]">{o.sample}</span>
               {o.label}
               {value === o.key && <IconCheck size={11} className="ml-auto" />}
             </button>
@@ -587,34 +576,14 @@ export function AIActionMenu({
   hasJD: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useActionMenu(open, setOpen, menuRef);
   const { models, privacy } = useAppSlice("models", "privacy");
   const rules = selectProvider(models, privacy).kind === "rules";
   return (
     <div
       className="relative"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          setOpen(false);
-          e.currentTarget.querySelector<HTMLButtonElement>("button")?.focus();
-        }
-        if (["ArrowDown", "ArrowUp"].includes(e.key)) {
-          const items = Array.from(
-            e.currentTarget.querySelectorAll<HTMLButtonElement>(
-              'button[role="menuitem"]:not(:disabled)'
-            )
-          );
-          if (items.length) {
-            e.preventDefault();
-            const i = items.indexOf(
-              document.activeElement as HTMLButtonElement
-            );
-            items[
-              (i + (e.key === "ArrowDown" ? 1 : -1) + items.length) %
-                items.length
-            ].focus();
-          }
-        }
-      }}
+      ref={menuRef}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false);
       }}
@@ -625,7 +594,7 @@ export function AIActionMenu({
           setOpen((v) => !v);
         }}
         className={cx(
-          "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[12px] font-medium transition active:scale-95",
+          "editor-action inline-flex items-center gap-1.5 rounded-sm border px-3 text-[13px] font-medium transition-colors",
           open
             ? "border-brand-300 bg-brand-50 text-brand-700"
             : "border-brand-200 bg-brand-50 text-brand-700 hover:border-brand-400 hover:bg-brand-100"
@@ -641,10 +610,10 @@ export function AIActionMenu({
         <>
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
           <div
-            role="menu"
-            className="anim-scale-in absolute right-0 top-8 z-30 w-60 overflow-hidden rounded-lg border border-ink-200 bg-white shadow-xl shadow-ink-950/15"
+            role="menu" aria-label="条目优化动作"
+          className="app-menu absolute right-0 top-8 z-30 w-60 overflow-hidden rounded-lg border border-ink-200 bg-white shadow-xl shadow-ink-950/15"
           >
-            <p className="border-b border-ink-100 bg-paper-50 px-3 py-1.5 text-[10.5px] font-medium tracking-wide text-ink-400">
+            <p className="border-b border-ink-100 bg-paper-50 px-3 py-1.5 text-[12px] font-medium tracking-wide text-ink-400">
               {rules
                 ? "规则检查：精简措辞与核对提示"
                 : "模型写作：生成后逐条确认"}
@@ -652,7 +621,7 @@ export function AIActionMenu({
             {(Object.keys(ACTION_LABELS) as AIAction[]).map((a) => (
               <button
                 key={a}
-                role="menuitem"
+                role="menuitem" tabIndex={-1}
                 disabled={
                   rules && ["rewrite", "expand", "translate"].includes(a)
                 }
@@ -666,7 +635,7 @@ export function AIActionMenu({
                 <span className="mt-0.5 w-14 shrink-0 text-[12px] font-bold text-ink-800">
                   {ACTION_LABELS[a].label}
                 </span>
-                <span className="text-[11px] leading-snug text-ink-400">
+                <span className="text-[12px] leading-snug text-ink-400">
                   {rules && ["rewrite", "expand", "translate"].includes(a)
                     ? "需在模型与隐私中启用模型"
                     : ACTION_LABELS[a].hint}
@@ -726,24 +695,7 @@ export function BlockCard({
   const [confirmDel, setConfirmDel] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!moreOpen) return;
-    const close = (e: MouseEvent) => {
-      if (!moreRef.current?.contains(e.target as Node)) setMoreOpen(false);
-    };
-    const escape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setMoreOpen(false);
-        moreRef.current?.querySelector("button")?.focus();
-      }
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [moreOpen]);
+  useActionMenu(moreOpen, setMoreOpen, moreRef);
   const jd = useApp((s) => s.jds[resume.id]);
   const isEntry = [
     "work_experience_item",
@@ -787,13 +739,13 @@ export function BlockCard({
         <span
           className={cx(
             "min-w-0 flex-1 truncate text-[13px]",
-            block.title ? "font-medium text-ink-800" : "text-ink-300"
+            block.title ? "font-medium text-ink-800" : "text-ink-500"
           )}
         >
           {preview}
         </span>
         {block.start_date && (
-          <span className="shrink-0 font-mono text-[11px] text-ink-300">
+          <span className="shrink-0 font-mono text-[12px] text-ink-500">
             {block.start_date}
             {block.end_date ? ` – ${block.end_date}` : ""}
           </span>
@@ -809,29 +761,11 @@ export function BlockCard({
           <div
             className="relative"
             ref={moreRef}
-            onKeyDown={(e) => {
-              if (["ArrowDown", "ArrowUp"].includes(e.key)) {
-                const items = Array.from(
-                  e.currentTarget.querySelectorAll<HTMLButtonElement>(
-                    'button[role="menuitem"]:not(:disabled)'
-                  )
-                );
-                if (items.length) {
-                  e.preventDefault();
-                  const i = items.indexOf(
-                    document.activeElement as HTMLButtonElement
-                  );
-                  items[
-                    (i + (e.key === "ArrowDown" ? 1 : -1) + items.length) %
-                      items.length
-                  ].focus();
-                }
-              }
-            }}
+
           >
             <button
               type="button"
-              className="rounded px-2 py-1.5 text-[12px] text-ink-500 hover:bg-paper-100"
+              className="editor-action rounded-sm px-3 py-1.5 text-[13px] text-ink-600 hover:bg-paper-100"
               aria-haspopup="menu"
               aria-expanded={moreOpen}
               aria-label={`更多操作 ${preview}`}
@@ -841,11 +775,11 @@ export function BlockCard({
             </button>
             {moreOpen && (
               <div
-                role="menu"
-                className="absolute right-0 top-full z-20 mt-1 w-36 rounded-lg border border-line bg-white p-1 shadow-lg"
+                role="menu" aria-label="条目操作"
+          className="app-menu absolute right-0 top-full z-20 mt-1 w-36 rounded-lg border border-line bg-white p-1 shadow-lg"
               >
                 <button
-                  role="menuitem"
+                  role="menuitem" tabIndex={-1}
                   className="block w-full rounded px-3 py-2 text-left text-[12px] hover:bg-paper-100 disabled:opacity-40"
                   disabled={index === 0}
                   onClick={() => {
@@ -861,7 +795,7 @@ export function BlockCard({
                   上移
                 </button>
                 <button
-                  role="menuitem"
+                  role="menuitem" tabIndex={-1}
                   className="block w-full rounded px-3 py-2 text-left text-[12px] hover:bg-paper-100 disabled:opacity-40"
                   disabled={index === total - 1}
                   onClick={() => {
@@ -877,7 +811,7 @@ export function BlockCard({
                   下移
                 </button>
                 <button
-                  role="menuitem"
+                  role="menuitem" tabIndex={-1}
                   className="block w-full rounded px-3 py-2 text-left text-[12px] hover:bg-paper-100"
                   onClick={() => {
                     patchBlock(resume.id, section.section_id, block.block_id, {
@@ -889,7 +823,7 @@ export function BlockCard({
                   {block.visible ? "隐藏这段" : "显示这段"}
                 </button>
                 <button
-                  role="menuitem"
+                  role="menuitem" tabIndex={-1}
                   className="block w-full rounded px-3 py-2 text-left text-[12px] text-danger-700 hover:bg-danger-100"
                   onClick={() => {
                     setConfirmDel(true);
@@ -994,7 +928,7 @@ export function BlockCard({
                       {block.subtitles!.map((st, i) => (
                         <div key={i} className="flex items-center gap-1.5">
                           <span
-                            className="shrink-0 text-[12px] text-ink-300"
+                            className="shrink-0 text-[12px] text-ink-500"
                             aria-hidden="true"
                           >
                             ·
@@ -1276,14 +1210,14 @@ export function SectionCard({
           >
             {section.title}
             {section.type === "custom" && (
-              <span className="ml-1.5 align-middle text-[10px] font-normal text-ink-300">
+              <span className="ml-1.5 align-middle text-[12px] font-normal text-ink-500">
                 自定义
               </span>
             )}
           </h3>
         )}
         {section.type !== "basic_info" && visibleBlocks.length > 0 && (
-          <span className="text-[11px] text-ink-400">
+          <span className="text-[12px] text-ink-400">
             {visibleBlocks.length} 条
           </span>
         )}
@@ -1320,7 +1254,7 @@ export function SectionCard({
         <BasicInfoEditor resume={resume} />
       ) : visibleBlocks.length === 0 ? (
         <div className="flex items-center justify-between px-4 py-3">
-          <p className="text-[12px] text-ink-300">暂无内容</p>
+          <p className="text-[12px] text-ink-500">暂无内容</p>
           <button
             onClick={() => addBlock(resume.id, section.section_id)}
             className="inline-flex items-center gap-1 text-[12px] font-medium text-brand-600 transition hover:text-brand-700"
@@ -1403,7 +1337,7 @@ function ImageUploadField({
           {url ? (
             <img src={url} alt={label} className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[1.1em] font-bold text-ink-300">
+            <div className="flex h-full w-full items-center justify-center text-[1.1em] font-bold text-ink-500">
               {placeholder}
             </div>
           )}
@@ -1529,7 +1463,7 @@ function BasicInfoEditor({ resume }: { resume: Resume }) {
           </button>
         </div>
         {(b.custom_fields ?? []).length === 0 && (
-          <details className="text-[11px] text-ink-500">
+          <details className="text-[12px] text-ink-500">
             <summary className="cursor-pointer">哪些信息适合放在这里？</summary>
             <p className="mt-1">
               可按岗位要求补充到岗时间等信息，填写名称与内容后显示在简历上。

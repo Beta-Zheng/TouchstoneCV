@@ -4,30 +4,131 @@ import { cx } from "../lib/utils";
 import { useApp, flushSave } from "../lib/store";
 import { IconAlert, IconCheck, IconInfo, IconX } from "./icons";
 
+/** Shared keyboard and dismissal behavior for anchored action menus. */
+export function useActionMenu(
+  open: boolean,
+  setOpen: (open: boolean) => void,
+  container: React.RefObject<HTMLDivElement>
+) {
+  const startAtEnd = useRef(false);
+  useEffect(() => {
+    const root = container.current;
+    if (!root) return;
+    const trigger = () => root.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]');
+    const items = () => Array.from(root.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]:not(:disabled)'));
+    const position = () => {
+      const menu = root.querySelector<HTMLElement>('[role="menu"]');
+      const anchor = trigger();
+      if (!open || !menu || !anchor) return;
+      let top = 8, bottom = window.innerHeight - 8;
+      for (let parent = root.parentElement; parent; parent = parent.parentElement) {
+        if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(parent).overflowY)) {
+          const bounds = parent.getBoundingClientRect();
+          top = Math.max(top, bounds.top);
+          bottom = Math.min(bottom, bounds.bottom);
+        }
+      }
+      const bounds = anchor.getBoundingClientRect();
+      const below = bottom - bounds.bottom - 6;
+      const above = bounds.top - top - 6;
+      const upwards = below < Math.min(menu.scrollHeight, 360) && above > below;
+      menu.style.top = upwards ? "auto" : "100%";
+      menu.style.bottom = upwards ? "calc(100% + 6px)" : "auto";
+      menu.style.marginTop = upwards ? "0" : "6px";
+      menu.style.maxHeight = `${Math.max(48, Math.min(360, upwards ? above : below))}px`;
+    };
+    const frame = open ? requestAnimationFrame(() => {
+      position();
+      const options = items();
+      (options.find((item) => item.getAttribute("aria-checked") === "true") ??
+        (startAtEnd.current ? options[options.length - 1] : options[0]))?.focus();
+      startAtEnd.current = false;
+    }) : undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if (!open) {
+        if (event.target === trigger() && ["ArrowDown", "ArrowUp"].includes(event.key)) {
+          event.preventDefault();
+          event.stopPropagation();
+          startAtEnd.current = event.key === "ArrowUp";
+          setOpen(true);
+        }
+        return;
+      }
+      if (event.key === "Escape" || event.key === "Tab") {
+        if (event.key === "Escape") event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+        trigger()?.focus();
+        return;
+      }
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const options = items();
+      const index = options.indexOf(document.activeElement as HTMLButtonElement);
+      const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 :
+        (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+      options[next]?.focus();
+    };
+    const onOutside = (event: PointerEvent) => {
+      if (open && !root.contains(event.target as Node)) setOpen(false);
+    };
+    const onBlur = (event: FocusEvent) => {
+      if (open && !root.contains(event.relatedTarget as Node)) setOpen(false);
+    };
+    const onActivate = (event: MouseEvent) => {
+      if ((event.target as Element).closest('[role^="menuitem"]')) trigger()?.focus();
+    };
+    root.addEventListener("keydown", onKey);
+    root.addEventListener("focusout", onBlur);
+    root.addEventListener("click", onActivate);
+    document.addEventListener("pointerdown", onOutside);
+    if (open) {
+      window.addEventListener("resize", position);
+      window.addEventListener("scroll", position, true);
+    }
+    return () => {
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      root.removeEventListener("keydown", onKey);
+      root.removeEventListener("focusout", onBlur);
+      root.removeEventListener("click", onActivate);
+      document.removeEventListener("pointerdown", onOutside);
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
+    };
+  }, [open, setOpen, container]);
+}
+
 /* ---------------- 按钮 ---------------- */
 
 type BtnVariant = "primary" | "dark" | "ghost" | "outline" | "danger" | "seal";
 
 export function Btn({
   variant = "outline",
+  size = "md",
   className,
   children,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: BtnVariant;
+  size?: "sm" | "md" | "lg";
+}) {
   const styles: Record<BtnVariant, string> = {
     primary: "bg-brand-600 text-white hover:bg-brand-700",
-    dark: "bg-brand-700 text-white hover:bg-brand-800",
+    dark: "bg-ink-800 text-white hover:bg-ink-900",
     ghost: "text-ink-600 hover:bg-ink-900/5 hover:text-ink-900",
     outline:
-      "border border-ink-200 bg-white/70 text-ink-800 hover:border-ink-300 hover:bg-white",
+      "border border-ink-200 bg-white text-ink-800 hover:border-ink-400 hover:bg-subtle",
     danger:
       "border border-danger-600/30 bg-danger-100/60 text-danger-700 hover:bg-danger-100",
-    seal: "bg-seal-500 text-white hover:bg-seal-600",
+    seal: "bg-seal-600 text-white hover:bg-seal-700",
   };
   return (
     <button
+      type="button"
+      data-size={size}
       className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-sm px-3.5 py-2 text-[14px] font-medium leading-5 transition-colors duration-150 disabled:pointer-events-none disabled:opacity-45",
+        "app-btn inline-flex items-center justify-center gap-2 rounded-sm px-4 py-2 text-[14px] font-medium leading-5 transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-45",
         styles[variant],
         className
       )}
@@ -168,7 +269,7 @@ export function ModalHeader({
   return (
     <div className="flex items-start justify-between gap-4 border-b border-ink-100 px-5 py-4">
       <div>
-        <h3 className="font-display text-[17px] font-bold text-ink-900">
+        <h3 className="text-[20px] font-semibold leading-7 text-ink-900">
           {title}
         </h3>
         {sub && <p className="mt-0.5 text-xs text-ink-400">{sub}</p>}
@@ -259,16 +360,12 @@ export function Toggle({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={cx(
-        "relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200",
-        checked ? "bg-brand-600" : "bg-ink-200"
+        "app-switch relative inline-flex h-10 w-11 shrink-0 items-center justify-center rounded-sm"
       )}
     >
-      <span
-        className={cx(
-          "absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
-          checked ? "translate-x-[18px]" : "translate-x-0.5"
-        )}
-      />
+      <span className={cx("relative h-6 w-11 rounded-full transition-colors duration-150", checked ? "bg-brand-600" : "bg-ink-400")}>
+        <span className={cx("absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-150", checked ? "translate-x-[22px]" : "translate-x-0.5")} />
+      </span>
     </button>
   );
 }

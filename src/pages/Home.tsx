@@ -244,7 +244,7 @@ export default function Home() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <select
+            <select data-ui-select
               aria-label="简历类型"
               className="field-input w-28"
               value={filter}
@@ -255,7 +255,7 @@ export default function Home() {
               <option value="target">岗位版本</option>
               <option value="archived">已归档</option>
             </select>
-            <select
+            <select data-ui-select
               aria-label="排序简历"
               className="field-input w-28"
               value={sort}
@@ -268,7 +268,7 @@ export default function Home() {
         </div>
         {!list.length ? (
           <div className="rounded-2xl border border-dashed border-line bg-surface p-10 text-center">
-            <IconFile size={30} className="mx-auto text-ink-300" />
+            <IconFile size={30} className="mx-auto text-ink-500" />
             <p className="mt-3 font-bold">
               {app.resumes.length
                 ? "没有符合条件的简历"
@@ -449,7 +449,7 @@ export default function Home() {
               <div className="mb-4 grid grid-cols-2 gap-3">
                 <label className="text-[12px]">
                   求职场景
-                  <select
+                  <select data-ui-select
                     className="field-input mt-1"
                     value={audience}
                     onChange={(e) =>
@@ -465,7 +465,7 @@ export default function Home() {
                 </label>
                 <label className="text-[12px]">
                   版式语言
-                  <select
+                  <select data-ui-select
                     className="field-input mt-1"
                     value={locale}
                     onChange={(e) => setLocale(e.target.value as typeof locale)}
@@ -500,7 +500,7 @@ export default function Home() {
                       onClick={() => setTab(id)}
                     >
                       <p className="text-[13px] font-bold">{label}</p>
-                      <p className="mt-1 text-[11px] text-ink-500">{desc}</p>
+                      <p className="mt-1 text-[12px] text-ink-500">{desc}</p>
                     </button>
                   ))}
                   <button
@@ -508,7 +508,7 @@ export default function Home() {
                     onClick={() => create(emptyResume(), "未命名简历")}
                   >
                     <p className="text-[13px] font-bold">空白简历</p>
-                    <p className="mt-1 text-[11px] text-ink-500">
+                    <p className="mt-1 text-[12px] text-ink-500">
                       从零填写真实经历
                     </p>
                   </button>
@@ -522,7 +522,7 @@ export default function Home() {
                 >
                   <IconUpload size={26} />
                   <p className="mt-2 text-[13px]">选择文件，或拖拽到页面</p>
-                  <p className="mt-1 text-[11px] text-ink-400">
+                  <p className="mt-1 text-[12px] text-ink-400">
                     单个文件 ≤ 10 MB
                   </p>
                 </button>
@@ -588,7 +588,7 @@ export default function Home() {
                         }}
                       >
                         <p className="text-[13px] font-bold">{label}</p>
-                        <p className="mt-1 text-[11px] text-ink-500">
+                        <p className="mt-1 text-[12px] text-ink-500">
                           {AUDIENCE_LABELS[audience]} · 示例可编辑
                         </p>
                       </button>

@@ -136,7 +136,7 @@ function ModelForm({
           </label>
           <label className="block">
             <span className="field-label">类型</span>
-            <select
+            <select data-ui-select
               className="field-input"
               value={m.type}
               onChange={(e) => set({ type: e.target.value as ModelType })}
@@ -221,7 +221,7 @@ function ModelForm({
               />
               <button
                 type="button"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-ink-300 hover:text-ink-600"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-ink-500 hover:text-ink-600"
                 onClick={() => setShowKey((v) => !v)}
                 aria-label="显示/隐藏 Key"
               >
@@ -544,7 +544,7 @@ export default function Models() {
                 {t && !t.running && (
                   <p
                     className={cx(
-                      "mt-2.5 flex items-start gap-1.5 rounded-lg px-2.5 py-2 text-[11px] font-medium leading-snug",
+                      "mt-2.5 flex items-start gap-1.5 rounded-lg px-2.5 py-2 text-[12px] font-medium leading-snug",
                       t.ok
                         ? "bg-ok-bg text-ok"
                         : "bg-danger-100 text-danger-700"
@@ -558,7 +558,7 @@ export default function Models() {
                     <span>
                       {t.message}
                       {t.ok && (
-                        <span className="ml-1 font-mono text-[10px] opacity-70">
+                        <span className="ml-1 font-mono text-[12px] opacity-70">
                           {t.latency}ms · JSON 输出可用
                         </span>
                       )}

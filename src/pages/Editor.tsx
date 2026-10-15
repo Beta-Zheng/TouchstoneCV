@@ -83,7 +83,7 @@ function MenuSection({
 }) {
   return (
     <div className="mb-3 last:mb-0">
-      <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-wider text-ink-400">
+      <p className="mb-1.5 px-1 text-[12px] font-bold uppercase tracking-wider text-ink-400">
         {title}
       </p>
       {children}
@@ -337,14 +337,14 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           </div>
           <Btn
             variant="ghost"
-            className="h-9 shrink-0 text-[12px]"
+            className="shrink-0"
             onClick={() => setSettingsOpen(true)}
           >
             简历设置
           </Btn>
           <Btn
             variant="primary"
-            className="h-9 shrink-0 text-[12px]"
+            className="shrink-0"
             onClick={() => setPreviewOpen(true)}
           >
             导出
@@ -376,7 +376,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 aria-selected={editorMode === mode}
                 tabIndex={editorMode === mode ? 0 : -1}
                 className={cx(
-                  "rounded-md px-2 py-1.5 sm:px-3",
+                  "editor-view-tab min-h-8 rounded-sm px-3 py-1.5 text-[13px]",
                   editorMode === mode
                     ? "bg-white font-semibold text-ink-900 shadow-sm"
                     : "text-ink-500"
@@ -392,7 +392,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
         </div>
         <Btn
           variant="ghost"
-          className="h-8 text-[12px]"
+          size="sm"
           onClick={() => {
             setEditorMode("content");
             setMobilePanel((m) => (m === "outline" ? "none" : "outline"));
@@ -403,7 +403,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
         </Btn>
         <Btn
           variant="ghost"
-          className="h-8 text-[12px]"
+          size="sm"
           onClick={() => {
             setEditorMode("content");
             setMobilePanel((m) => (m === "panel" ? "none" : "panel"));
@@ -412,9 +412,9 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           <IconPanelRight size={14} />
           建议
         </Btn>
-        <select
+        <select data-ui-select
           aria-label="辅助工具"
-          className="max-w-32 rounded border border-line bg-white px-2 py-1.5"
+          className="editor-tool-select min-h-8 max-w-32 rounded-sm border border-line bg-white px-3 py-1.5 text-[13px]"
           value=""
           onChange={(e) => {
             if (e.target.value === "parent" && parentResume)
@@ -429,7 +429,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           {parentResume && <option value="parent">返回主简历</option>}
         </select>
         <span
-          className="ml-auto text-[11px] text-ink-500"
+          className="ml-auto text-[12px] text-ink-500"
           title={`基础字段完成度 ${completion(resume)}%，仅表示填写情况`}
         >
           {inspectResume(resume).filter((i) => i.severity === "warning").length
@@ -532,7 +532,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
             )}
           >
             <button
-              className="px-3 py-2 text-[11px] text-ink-500 2xl:hidden"
+              className="px-3 py-2 text-[12px] text-ink-500 2xl:hidden"
               aria-label="关闭目录"
               onClick={() => setMobilePanel("none")}
             >
@@ -680,7 +680,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
             )}
           >
             <button
-              className="self-end px-3 py-2 text-[11px] text-ink-500 2xl:hidden"
+              className="self-end px-3 py-2 text-[12px] text-ink-500 2xl:hidden"
               aria-label="关闭 AI 与 JD 面板"
               onClick={() => setMobilePanel("none")}
             >
@@ -786,7 +786,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="text-[13px]">
                   求职场景
-                  <select
+                  <select data-ui-select
                     aria-label="求职场景"
                     className="field-input mt-1"
                     value={resume.audience ?? "experienced"}
@@ -805,7 +805,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 </label>
                 <label className="text-[13px]">
                   版式语言
-                  <select
+                  <select data-ui-select
                     aria-label="版式语言"
                     className="field-input mt-1"
                     value={resume.locale ?? "zh"}
@@ -818,7 +818,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                     <option value="zh">中文</option>
                     <option value="en">英文版式</option>
                   </select>
-                  <span className="mt-1 block text-[11px] text-ink-500">
+                  <span className="mt-1 block text-[12px] text-ink-500">
                     仅调整标准标题和日期，经历内容需单独翻译。
                   </span>
                 </label>
@@ -899,7 +899,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                         key={n}
                         onClick={() => app.setTheme(resumeId, { font_size: n })}
                         className={cx(
-                          "flex-1 rounded-md px-2 py-1 font-mono text-[11px] font-bold transition",
+                          "flex-1 rounded-md px-2 py-1 font-mono text-[12px] font-bold transition",
                           resume.theme.font_size === n
                             ? "bg-white text-ink-900 shadow-sm"
                             : "text-ink-500 hover:bg-paper-200 hover:text-ink-800"
@@ -929,7 +929,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                           app.setTheme(resumeId, { font_family: k })
                         }
                         className={cx(
-                          "rounded-md px-1.5 py-1 text-[11px] font-medium transition",
+                          "rounded-md px-1.5 py-1 text-[12px] font-medium transition",
                           (resume.theme.font_family ?? "sans") === k
                             ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
                             : "bg-paper-100 text-ink-500 hover:bg-paper-200 hover:text-ink-800"
@@ -958,7 +958,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                         key={k}
                         onClick={() => app.setTheme(resumeId, { density: k })}
                         className={cx(
-                          "flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition",
+                          "flex-1 rounded-md px-2 py-1 text-[12px] font-medium transition",
                           (resume.theme.density ?? "medium") === k
                             ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
                             : "text-ink-500 hover:bg-paper-200 hover:text-ink-800"
@@ -984,7 +984,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                             app.setTheme(resumeId, { header_layout: k })
                           }
                           className={cx(
-                            "flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition",
+                            "flex-1 rounded-md px-2 py-1 text-[12px] font-medium transition",
                             (resume.theme.header_layout ?? "row") === k
                               ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
                               : "text-ink-500 hover:bg-paper-200 hover:text-ink-800"
@@ -1019,11 +1019,11 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                         className="h-1 min-w-0 flex-1 accent-brand-600"
                         aria-label="头像显示比例"
                       />
-                      <span className="w-10 shrink-0 text-right font-mono text-[11px] text-ink-500">
+                      <span className="w-10 shrink-0 text-right font-mono text-[12px] text-ink-500">
                         {(resume.theme.avatar_scale ?? 1).toFixed(1)}×
                       </span>
                     </div>
-                    <p className="mt-1 text-[11px] leading-snug text-ink-400">
+                    <p className="mt-1 text-[12px] leading-snug text-ink-400">
                       基于 1
                       寸照（25×35mm）基准按比例缩放，0.5×–2.0×；未上传头像时无效。
                     </p>
@@ -1031,7 +1031,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 )}
 
                 <MenuSection title="要点列表">
-                  <p className="rounded-lg bg-paper-100 px-2 py-1.5 text-[11px] leading-snug text-ink-500">
+                  <p className="rounded-lg bg-paper-100 px-2 py-1.5 text-[12px] leading-snug text-ink-500">
                     已改为
                     <strong className="font-semibold text-ink-700">
                       按模块设置

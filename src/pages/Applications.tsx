@@ -147,7 +147,7 @@ export function ApplicationForm({
         ))}
         <label className="text-[12px]">
           关联简历
-          <select
+          <select data-ui-select
             className="field-input mt-1"
             value={draft.resume_id}
             disabled={locked}
@@ -169,7 +169,7 @@ export function ApplicationForm({
         </label>
         <label className="text-[12px]">
           投递时的版本
-          <select
+          <select data-ui-select
             className="field-input mt-1"
             value={draft.snapshot_id ?? ""}
             disabled={locked}
@@ -194,7 +194,7 @@ export function ApplicationForm({
         )}
         <label className="text-[12px]">
           状态
-          <select
+          <select data-ui-select
             className="field-input mt-1"
             value={draft.status}
             onChange={(e) =>
@@ -344,14 +344,14 @@ export default function Applications() {
             aria-label="最近八周投递趋势"
           >
             <h2 className="text-[13px] font-bold">最近八周投递趋势</h2>
-            <p className="mt-1 text-[11px] text-ink-500">
+            <p className="mt-1 text-[12px] text-ink-500">
               按填写的投递日期统计；缺日期的记录不计入趋势。
             </p>
             <div className="mt-3 flex h-40 items-end gap-2">
               {stats.weeks.map((week) => (
                 <div
                   key={week.from}
-                  className="flex min-w-0 flex-1 flex-col items-center gap-1 text-[10px]"
+                  className="flex min-w-0 flex-1 flex-col items-center gap-1 text-[12px]"
                   title={`${week.from} 至 ${week.to}：${week.count} 次`}
                 >
                   <span>{week.count}</span>
@@ -399,7 +399,7 @@ export default function Applications() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <select
+        <select data-ui-select
           aria-label="筛选投递状态"
           className="field-input max-w-40"
           value={status}
@@ -436,7 +436,7 @@ export default function Applications() {
                 ? app.snapshots.find((s) => s.id === a.snapshot_id)?.label
                 : "尚未记录投递版本"}
             </p>
-            <p className="mt-1 text-[11px] text-ink-400">
+            <p className="mt-1 text-[12px] text-ink-400">
               {a.applied_at && `投递 ${a.applied_at}`}{" "}
               {a.follow_up_at && `· 跟进 ${a.follow_up_at}`}
             </p>

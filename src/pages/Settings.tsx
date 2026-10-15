@@ -161,11 +161,11 @@ export default function Settings() {
                     {unit}
                   </span>
                 </p>
-                <p className="mt-1.5 text-[11px] text-ink-400">{label}</p>
+                <p className="mt-1.5 text-[12px] text-ink-400">{label}</p>
               </div>
             ))}
           </div>
-          <p className="mt-3 flex items-center justify-between rounded-lg bg-paper-100 px-3 py-2 font-mono text-[11px] text-ink-500">
+          <p className="mt-3 flex items-center justify-between rounded-lg bg-paper-100 px-3 py-2 font-mono text-[12px] text-ink-500">
             <span>数据体积估算</span>
             <span className="font-bold text-ink-800">{storageKB} KB</span>
           </p>
@@ -181,7 +181,7 @@ export default function Settings() {
 备份不含 API Key；本机密钥未加密。`}
             </pre>
             {storageEstimate && (
-              <p className="mt-2 text-[11px] text-ink-500">
+              <p className="mt-2 text-[12px] text-ink-500">
                 站点实际占用约{" "}
                 {((storageEstimate.usage ?? 0) / 1024 / 1024).toFixed(1)}{" "}
                 MB，浏览器报告配额约{" "}
@@ -282,13 +282,13 @@ export default function Settings() {
                   e.target.value = "";
                 }}
               />
-              <p className="text-[10px] text-ink-400">
+              <p className="text-[12px] text-ink-400">
                 {lastBackup
                   ? `上次备份下载准备：${new Date(lastBackup).toLocaleString()}`
                   : "尚未下载全量备份"}
               </p>
               <div className="mt-2 flex gap-2">
-                <select
+                <select data-ui-select
                   aria-label="选择单份备份简历"
                   className="field-input min-w-0 flex-1"
                   value={singleId}
@@ -406,7 +406,7 @@ export default function Settings() {
               </ul>
               <label className="block text-[12px]">
                 恢复方式
-                <select
+                <select data-ui-select
                   className="field-input mt-1"
                   value={restoreMode}
                   onChange={(e) =>
@@ -419,7 +419,7 @@ export default function Settings() {
                   <option value="replace">覆盖：替换所有当前简历与配置</option>
                 </select>
               </label>
-              <p className="my-3 text-[11px] text-ink-500">
+              <p className="my-3 text-[12px] text-ink-500">
                 {restoreMode === "replace"
                   ? "覆盖会替换当前数据并关闭外部调用，请先备份。密钥只保留同一服务已有的本机密钥。"
                   : "合并保留当前模型、密钥和隐私设置，关联版本与投递记录一并导入。"}

@@ -176,7 +176,7 @@ export default function ImportReview({
                   >
                     <label className="block text-[11px]">
                       条目归属
-                      <select
+                      <select data-ui-select
                         aria-label={`条目归属 ${b.title || s.title}`}
                         className="field-input mt-1"
                         value={s.section_id}
