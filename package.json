@@ -15,7 +15,8 @@
     "test:exports": "node qa/export-check.mjs",
     "test:storage": "node qa/storage-check.mjs",
     "test:layout": "node qa/layout-check.mjs",
-    "test:navigation": "node qa/navigation-check.mjs"
+    "test:navigation": "node qa/navigation-check.mjs",
+    "test:usability": "node qa/usability-check.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

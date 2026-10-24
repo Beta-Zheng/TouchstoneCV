@@ -16,11 +16,13 @@ export default function ExportDialog({
   onClose,
   onLocate,
   onAdjustLayout,
+  onRecordApplication,
 }: {
   resume: Resume;
   onClose: () => void;
   onLocate: (sectionId: string, blockId?: string) => void;
   onAdjustLayout: () => void;
+  onRecordApplication: () => void;
 }) {
   const app = useAppSlice(
     "resumes",
@@ -41,13 +43,15 @@ export default function ExportDialog({
   const planRef = useRef(plan);
   planRef.current = plan;
   const [busy, setBusy] = useState(false);
+  const [prepared, setPrepared] = useState(false);
   const issues = inspectResume(resume);
   const ready = plan?.source === resume;
-  const filename = `resume_${
-    resume.data.basic_info.name || "untitled"
-  }_${fmtDateCompact(nowISO())}`;
-  const capture = (label: string) =>
-    app.captureSnapshot(resume.id, label, "export");
+  const [filename, setFilename] = useState(() => [resume.data.basic_info.name || '简历', resume.target?.company,
+    resume.target?.job_title || resume.data.basic_info.title, fmtDateCompact(nowISO())].filter(Boolean).join('_'));
+  const safeName = filename.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/[.\s]+$/g, '').slice(0, 120) || '简历';
+  const capture = (label: string) => {
+    app.captureSnapshot(resume.id, label, "export"); setPrepared(true);
+  };
   const print = async () => {
     if (!ready) return;
     const previous = document.title;
@@ -68,7 +72,7 @@ export default function ExportDialog({
         return;
       }
       capture("PDF 导出准备");
-      document.title = filename;
+      document.title = safeName;
       window.print();
     } catch {
       app.toast("err", "无法打开打印，请尝试下载 DOCX 或 TXT");
@@ -82,7 +86,7 @@ export default function ExportDialog({
     try {
       const content = await generateDocx(resume);
       downloadBlob(
-        `${filename}.docx`,
+        `${safeName}.docx`,
         new Blob([content], {
           type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         })
@@ -142,7 +146,7 @@ export default function ExportDialog({
               ))}
             </ul>
           ) : (
-            <p className="text-[12px] text-brand-700">基础内容检查通过</p>
+            <p className="text-[12px] text-brand-700">基础字段已填写，请确认内容真实准确</p>
           )}
           {ready && (
             <p className="mt-4 text-[12px] text-ink-500">
@@ -170,12 +174,16 @@ export default function ExportDialog({
           />
         </div>
       </div>
-      <div className="flex flex-wrap justify-end gap-2 border-t border-line bg-paper-25 p-3">
+      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line bg-paper-25 p-3">
+        <label className="mr-auto min-w-0 flex-1 basis-52 text-[12px] text-ink-500">文件名称<input aria-label="导出文件名称" className="field-input mt-1" value={filename} onChange={e => setFilename(e.target.value)} /></label>
+        <details className="relative">
+          <summary className="cursor-pointer rounded-lg border border-line px-3 py-2 text-[13px]">备份与文本格式</summary>
+          <div className="absolute bottom-full right-0 z-20 mb-2 flex w-44 flex-col gap-1 rounded-lg border border-line bg-white p-2 shadow-lg">
         <Btn
           disabled={busy}
           onClick={() => {
             downloadText(
-              `${filename}.json`,
+              `${safeName}.json`,
               JSON.stringify(createResumeBackup(app, resume.id), null, 2)
             );
             capture("JSON 导出准备");
@@ -186,12 +194,14 @@ export default function ExportDialog({
         <Btn
           disabled={busy}
           onClick={() => {
-            downloadText(`${filename}.txt`, resumeText(resume), "text/plain");
+            downloadText(`${safeName}.txt`, resumeText(resume), "text/plain");
             capture("TXT 导出准备");
           }}
         >
           下载 TXT
         </Btn>
+          </div>
+        </details>
         <Btn disabled={busy} onClick={() => void word()}>
           下载 DOCX
         </Btn>
@@ -203,6 +213,7 @@ export default function ExportDialog({
           {busy ? "正在准备…" : "打印 / 另存为 PDF"}
         </Btn>
       </div>
+      {prepared && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-4 py-2 text-[12px] text-ink-500"><span>已保留导出准备快照；尚未记录实际投递。</span><Btn size="sm" onClick={onRecordApplication}>记录投递</Btn></div>}
       {ready &&
         createPortal(
           <div className="print-only">

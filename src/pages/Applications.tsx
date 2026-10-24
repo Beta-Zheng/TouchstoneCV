@@ -264,6 +264,8 @@ export default function Applications() {
     "deleteApplication"
   );
   const [edit, setEdit] = useState<Application | "new" | null>(null);
+  const [quick, setQuick] = useState<Application | null>(null);
+  const [dueOnly, setDueOnly] = useState(false);
   const [remove, setRemove] = useState<Application | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
@@ -272,9 +274,13 @@ export default function Applications() {
   const stats = applicationStats(app.applications, today);
   const list = app.applications.filter(
     (a) =>
+      (!dueOnly || (a.follow_up_at && a.follow_up_at <= today && !TERMINAL_STATUSES.includes(a.status))) &&
       (status === "all" || a.status === status) &&
       [a.company, a.role].join(" ").toLowerCase().includes(query.toLowerCase())
-  );
+  ).sort((a, b) => {
+    const due = (item: Application) => !!item.follow_up_at && item.follow_up_at <= today && !TERMINAL_STATUSES.includes(item.status);
+    return Number(due(b)) - Number(due(a)) || b.updated_at.localeCompare(a.updated_at);
+  });
   return (
     <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -291,8 +297,8 @@ export default function Applications() {
       </div>
       <div className="my-5 grid grid-cols-2 gap-3 border-y border-line py-4 lg:grid-cols-4">
         {[
-          ["已投递", stats.submitted],
-          ["有面试记录", stats.interviews],
+          ["累计已投递", stats.submitted],
+          ["曾进入面试", stats.interviews],
           ["收到 Offer", stats.offers],
           ["待跟进", stats.followups],
         ].map(([label, count]) => (
@@ -378,23 +384,17 @@ export default function Applications() {
               ))}
             </div>
             <p className="mt-2 text-[12px] text-ink-500">
-              已记录面试比例：
-              {stats.submitted
-                ? Math.round((stats.interviews / stats.submitted) * 100)
-                : 0}
-              % · Offer 比例：
-              {stats.submitted
-                ? Math.round((stats.offers / stats.submitted) * 100)
-                : 0}
-              %
+              面试记录 {stats.interviews}/{stats.submitted} · Offer 记录 {stats.offers}/{stats.submitted}
+              {stats.submitted >= 10 ? ` · 面试占比 ${Math.round(100 * stats.interviews / stats.submitted)}% · Offer 占比 ${Math.round(100 * stats.offers / stats.submitted)}%` : ' · 样本较少，暂不展示百分比'}
             </p>
           </section>
         </div>
       </details>
-      <div className="my-5 flex gap-3">
+      <div className="my-5 flex flex-wrap gap-3">
+        <Btn size="sm" aria-pressed={dueOnly} onClick={() => { setDueOnly(v => !v); setStatus('all'); }}>只看待跟进</Btn>
         <input
           aria-label="搜索投递记录"
-          className="field-input max-w-xs"
+          className="field-input min-w-40 max-w-xs flex-1"
           placeholder="公司或职位"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -431,10 +431,7 @@ export default function Applications() {
               <StatusBadge status={a.status} />
             </div>
             <p className="mt-2 text-[12px] text-ink-500">
-              {app.resumes.find((r) => r.id === a.resume_id)?.title} ·{" "}
-              {a.snapshot_id
-                ? app.snapshots.find((s) => s.id === a.snapshot_id)?.label
-                : "尚未记录投递版本"}
+              {a.snapshot_id ? '已固定投递版本' : '尚未固定投递版本'}
             </p>
             <p className="mt-1 text-[12px] text-ink-400">
               {a.applied_at && `投递 ${a.applied_at}`}{" "}
@@ -446,6 +443,7 @@ export default function Applications() {
                 <p className="mt-2 text-[12px] text-seal-700">已到跟进日期</p>
               )}
             <p className="mt-2 whitespace-pre-wrap text-[12px]">{a.notes}</p>
+            {a.events?.length ? <p className="mt-2 text-[13px] text-ink-600">最近反馈：{a.events[a.events.length - 1].note || APPLICATION_LABELS[a.events[a.events.length - 1].status]}</p> : null}
             <details className="mt-3 text-[12px]">
               <summary className="cursor-pointer text-ink-600">
                 反馈时间线 · {a.events?.length ?? 1} 条
@@ -478,7 +476,8 @@ export default function Applications() {
               </ol>
             </details>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Btn onClick={() => setEdit(a)}>编辑</Btn>
+              <Btn onClick={() => setQuick(a)}>更新进度</Btn>
+              <Btn variant="ghost" onClick={() => setEdit(a)}>编辑详情</Btn>
               <Btn
                 onClick={() =>
                   app.go({ name: "editor", resumeId: a.resume_id })
@@ -511,6 +510,7 @@ export default function Applications() {
           onClose={() => setEdit(null)}
         />
       )}
+      {quick && <QuickFeedback initial={quick} onClose={() => setQuick(null)} />}
       {viewSnapshot && (
         <SnapshotView
           snapshot={viewSnapshot}
@@ -530,4 +530,23 @@ export default function Applications() {
       />
     </div>
   );
+}
+
+function QuickFeedback({ initial, onClose }: { initial: Application; onClose: () => void }) {
+  const app = useAppSlice('saveApplication');
+  const [status, setStatus] = useState(initial.status);
+  const [note, setNote] = useState('');
+  const [followup, setFollowup] = useState(initial.follow_up_at);
+  return <Modal open onClose={onClose}>
+    <ModalHeader title="更新投递进度" sub={`${initial.company} · ${initial.role}`} onClose={onClose} />
+    <div className="space-y-4 p-5">
+      <label className="field-label block">当前状态<select data-ui-select aria-label="当前状态" className="field-input mt-1" value={status} onChange={e => setStatus(e.target.value as ApplicationStatus)}>{Object.entries(APPLICATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      <label className="field-label block">追加反馈<textarea aria-label="追加反馈" className="field-input mt-1" value={note} onChange={e => setNote(e.target.value)} placeholder="如：周五技术面试，准备检索项目复盘" /></label>
+      <label className="field-label block">下次跟进<input aria-label="下次跟进" type="date" className="field-input mt-1" value={followup} onChange={e => setFollowup(e.target.value)} /></label>
+      <div className="flex justify-end gap-2"><Btn onClick={onClose}>取消</Btn><Btn variant="primary" disabled={status === initial.status && followup === initial.follow_up_at && !note.trim()} onClick={() => {
+        const applied = initial.applied_at || (['applied', 'interview', 'offer', 'rejected'].includes(status) ? fmtDate(nowISO()) : '');
+        if (app.saveApplication({ ...initial, status, applied_at: applied, follow_up_at: followup, updated_at: nowISO() }, note.trim())) onClose();
+      }}>保存进度</Btn></div>
+    </div>
+  </Modal>;
 }

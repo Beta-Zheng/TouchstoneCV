@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cx } from "../lib/utils";
 import { useApp, flushSave } from "../lib/store";
@@ -155,6 +155,13 @@ export function Modal({
   bare?: boolean;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const headingId = useId();
+  const [labelledBy, setLabelledBy] = useState<string>();
+  useEffect(() => {
+    if (!open) { setLabelledBy(undefined); return; }
+    const heading = dialogRef.current?.querySelector<HTMLElement>('h1,h2,h3');
+    if (heading) { heading.id ||= headingId; setLabelledBy(heading.id); }
+  }, [open, headingId]);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
@@ -226,7 +233,8 @@ export function Modal({
           data-app-dialog
           role="dialog"
           aria-modal="true"
-          aria-label="简历操作对话框"
+          aria-label={labelledBy ? undefined : '简历操作对话框'}
+          aria-labelledby={labelledBy}
           tabIndex={-1}
           initial={{ opacity: 0, scale: 0.96, y: 6 }}
           animate={{
@@ -514,7 +522,7 @@ export function ToastHost() {
 
 /* ---------------- 自动保存状态指示 ---------------- */
 
-export function SaveIndicator() {
+export function SaveIndicator({ compact = false }: { compact?: boolean } = {}) {
   const lastSavedAt = useApp((s) => s.lastSavedAt);
   const saveStatus = useApp((s) => s.saveStatus);
   const [flash, setFlash] = useState(false);
@@ -532,7 +540,7 @@ export function SaveIndicator() {
   if (saveStatus === "error")
     return (
       <span role="alert" className="text-[11px] text-danger-700">
-        保存失败，请下载备份并检查浏览器存储空间{" "}
+        {compact ? '保存失败 ' : '保存失败，请下载备份并检查浏览器存储空间 '}
         <button className="underline" onClick={flushSave}>
           重试保存
         </button>
@@ -561,7 +569,7 @@ export function SaveIndicator() {
           flash ? "anim-pulse-dot bg-brand-500" : "bg-brand-400"
         )}
       />
-      已自动保存 {pad(d.getHours())}:{pad(d.getMinutes())}:{pad(d.getSeconds())}
+      {compact ? '已保存' : `仅此浏览器 · 已保存 ${pad(d.getHours())}:${pad(d.getMinutes())}`}
     </span>
   );
 }

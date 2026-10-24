@@ -63,6 +63,8 @@ export default function OnePageDialog({ resume, onClose, onEdit }: {
             }
           }
         }
+        // Recheck the chosen layout after candidate rendering and font/layout settling.
+        bestMeasure = await measurer.measure(best);
         const reasons = new Map<string, string>();
         let suggested: Set<string> | null = null;
         if (!fitsTarget(bestMeasure, targetPages)) {
@@ -99,6 +101,7 @@ export default function OnePageDialog({ resume, onClose, onEdit }: {
   const shown = previewOriginal ? resume : draft;
   const ready = !busy && !error && current && preview?.source === draft;
   const fits = !!(ready && fitsTarget(preview.measurement, targetPages!));
+  const allContentFits = !!(current && ((ready && fits && hidden.size === 0) || fitsTarget(analysis.bestMeasure, targetPages!)));
   const unchanged = !!(current && hidden.size === 0 && JSON.stringify(draft.theme) === JSON.stringify(resume.theme));
   const densityNames = { loose: '宽松', medium: '适中', compact: '紧凑' };
   const changes = [
@@ -143,14 +146,15 @@ export default function OnePageDialog({ resume, onClose, onEdit }: {
           {!fitsTarget(analysis!.before, targetPages!) && <fieldset className="space-y-2">
             <legend className="mb-2 text-[13px] font-medium">选择方案</legend>
             {([
-              ['all', '保留全部内容', fitsTarget(analysis!.bestMeasure, targetPages!) ? '只调整排版' : '仅排版仍超出目标页数'],
+              ['all', '保留全部内容', allContentFits ? '只调整排版' : '仅排版仍超出目标页数'],
               ['suggested', '精简部分内容', analysis!.suggested ? `建议隐藏 ${analysis!.suggested.size} 项，可逐项调整` : '没有满足当前锁定条件的精简方案'],
-            ] as const).map(([value, label, detail]) => <label key={value} className={`flex cursor-pointer gap-2 rounded-lg border p-3 text-[13px] ${plan === value ? 'border-brand-500 bg-brand-50' : 'border-line'}`}>
+            ] as const).filter(([value]) => value === 'all' || !allContentFits).map(([value, label, detail]) => <label key={value} className={`flex cursor-pointer gap-2 rounded-lg border p-3 text-[13px] ${plan === value ? 'border-brand-500 bg-brand-50' : 'border-line'}`}>
               <input type="radio" name="fit-plan" value={value} checked={plan === value} disabled={value === 'suggested' && !analysis!.suggested} onChange={() => { setPlan(value); setPreviewOriginal(false); }} className="mt-1 accent-brand-600" />
               <span><span className="block font-medium">{label}</span><span className="block text-[12px] text-ink-500">{detail}</span></span>
             </label>)}
             {plan === 'custom' && <p className="text-[12px] font-medium">已自定义内容</p>}
           </fieldset>}
+          {ready && fits && hidden.size === 0 && changes.length > 0 && <p className="text-[13px] text-brand-700">全部内容已保留，仅调整排版。</p>}
           {ready && !fits && <p className="text-[13px] text-seal-700">{oversized.length ? '以下条目超过单页容量，请先精简或拆成独立经历。' : '当前方案未达标。可调整纳入内容、解锁条目，或选择 2 页。'}</p>}
           {oversized.map(({ section, block }) => <div key={block.block_id} className="rounded-lg border border-line p-2 text-[13px]"><p>{titleOf(block)}</p>{onEdit && <Btn size="sm" onClick={() => { onClose(); onEdit(section.section_id, block.block_id); }}>前往编辑</Btn>}</div>)}
           {emptySections.length > 0 && <p role="alert" className="text-[13px] text-seal-700">此版本将不展示{emptySections.map(s => s.title).join('、')}，请确认符合用途。</p>}

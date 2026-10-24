@@ -40,7 +40,7 @@ import WorkflowDialog, {
 } from "../components/workflow-dialog";
 import { ApplicationForm } from "./Applications";
 import type { PageLayout } from "../lib/pagination";
-import { completion, inspectResume } from "../lib/workflow";
+import { completion, inspectResume, hasReviewedTarget } from "../lib/workflow";
 import { Btn, Modal, ModalHeader, SaveIndicator } from "../components/ui";
 import { flashLocation, scrollInPane, type ResumeLocation } from "../lib/preview-navigation";
 import {
@@ -175,7 +175,8 @@ export default function Editor({ resumeId }: { resumeId: string }) {
     "setTemplate",
     "setTheme",
     "addSection",
-    "setResumeOptions"
+    "setResumeOptions",
+    "captureSnapshot"
   );
   const [panelTab, setPanelTab] = useState<"ai" | "jd">("ai");
   const [activeTarget, setActiveTarget] = useState<{
@@ -376,12 +377,13 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           <div className="hidden shrink-0 sm:block">
             <SaveIndicator />
           </div>
+          <div className="shrink-0 sm:hidden"><SaveIndicator compact /></div>
           <Btn
             variant="ghost"
             className="shrink-0"
             onClick={() => setSettingsOpen(true)}
           >
-            简历设置
+            <span className="hidden sm:inline">简历设置</span><span className="sm:hidden">设置</span>
           </Btn>
           <Btn
             variant="primary"
@@ -390,9 +392,6 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           >
             导出
           </Btn>
-        </div>
-        <div className="mt-1 pl-9 sm:hidden">
-          <SaveIndicator />
         </div>
       </header>
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-white px-3 py-2 text-[12px] sm:px-4">
@@ -431,9 +430,11 @@ export default function Editor({ resumeId }: { resumeId: string }) {
               </button>
             ))}
         </div>
+        <div className="hidden sm:contents">
         <Btn
           variant="ghost"
           size="sm"
+          className="hidden sm:inline-flex"
           onClick={() => {
             setEditorMode("content");
             setMobilePanel((m) => (m === "outline" ? "none" : "outline"));
@@ -445,6 +446,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
         <Btn
           variant="ghost"
           size="sm"
+          className="hidden sm:inline-flex"
           onClick={() => {
             setEditorMode("content");
             setMobilePanel((m) => (m === "panel" ? "none" : "panel"));
@@ -453,9 +455,14 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           <IconPanelRight size={14} />
           建议
         </Btn>
+        <Btn size="sm" className="hidden sm:inline-flex" onClick={() => {
+          if (!resume.target) setTool("target");
+          else { setEditorMode("content"); setPanelTab("jd"); setMobilePanel("panel"); }
+        }}>针对岗位</Btn>
+        <Btn size="sm" className="hidden sm:inline-flex" onClick={() => setTool("versions")}>历史版本</Btn>
         <select data-ui-select
           aria-label="辅助工具"
-          className="editor-tool-select min-h-8 max-w-32 rounded-sm border border-line bg-white px-3 py-1.5 text-[13px]"
+          className="editor-tool-select hidden min-h-8 max-w-32 rounded-sm border border-line bg-white px-3 py-1.5 text-[13px] sm:block"
           value=""
           onChange={(e) => {
             if (e.target.value === "parent" && parentResume)
@@ -464,18 +471,31 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           }}
         >
           <option value="">辅助工具</option>
-          <option value="versions">版本记录</option>
           <option value="letter">求职信</option>
           <option value="source">导入原文</option>
-          {parentResume && <option value="parent">返回主简历</option>}
         </select>
-        <Btn size="sm" onClick={() => setOnePageOpen(true)}>篇幅调整</Btn>
+        <Btn size="sm" className="hidden sm:inline-flex" onClick={() => setOnePageOpen(true)}>篇幅调整</Btn>
+        </div>
+        <select data-ui-select aria-label="编辑工具" value="" className="editor-tool-select ml-auto min-h-8 max-w-28 rounded-sm border border-line bg-white px-2 text-[13px] sm:hidden"
+          onChange={e => {
+            const value = e.target.value;
+            if (value === "outline" || value === "panel") { setEditorMode("content"); setMobilePanel(value); }
+            else if (value === "layout") setOnePageOpen(true);
+            else if (value === "target") { if (!resume.target) setTool("target"); else { setEditorMode("content"); setPanelTab("jd"); setMobilePanel("panel"); } }
+            else if (value === "relation") setSourceUpdateOpen(true);
+            else if (value === "parent" && parentResume) app.go({name:'editor',resumeId:parentResume.id});
+            else if (value) setTool(value as WorkflowTool);
+          }}>
+          <option value="">更多</option><option value="outline">内容目录</option><option value="target">针对岗位</option><option value="panel">内容建议</option><option value="layout">篇幅调整</option><option value="versions">历史版本</option><option value="letter">求职信</option><option value="source">导入原文</option>
+          {parentResume && <option value="relation">主简历更新</option>}
+          {parentResume && <option value="parent">查看主简历</option>}
+        </select>
         {editorMode === "layout" && <Btn size="sm" variant="ghost" disabled={!previewLocation}
           onClick={() => { if (previewLocation) setPreviewLocation({ ...previewLocation, scroll: true, requestId: ++navigationId.current }); }}>
           定位预览
         </Btn>}
         <span
-          className="ml-auto text-[12px] text-ink-500"
+          className="ml-auto hidden text-[12px] text-ink-500 sm:block"
           title={`基础字段完成度 ${completion(resume)}%，仅表示填写情况`}
         >
           {inspectResume(resume).filter((i) => i.severity === "warning").length
@@ -483,7 +503,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 inspectResume(resume).filter((i) => i.severity === "warning")
                   .length
               } 项待检查`
-            : "基础检查通过"}
+            : "基础字段已填写"}
           {editorMode !== "content" && livePages.length
             ? ` · ${livePages.length} 页`
             : ""}
@@ -495,7 +515,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
         </p>
       )}
       {parentResume && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-[12px] text-ink-500">
+        <div className="hidden flex-wrap items-center gap-2 border-b border-line px-4 py-2 text-[12px] text-ink-500 sm:flex">
           <span>来源：{parentResume.title} · 独立岗位版本</span>
           {resume.target?.source_updated_at &&
             parentResume.updated_at > resume.target.source_updated_at && (
@@ -526,8 +546,14 @@ export default function Editor({ resumeId }: { resumeId: string }) {
       <WorkflowSteps
         resume={resume}
         hasJD={!!app.jds[resumeId]}
+        hasTargetReview={hasReviewedTarget(resume, app.jds[resumeId], app.snapshots)}
+        onConfirmTarget={() => app.captureSnapshot(resumeId, "岗位内容已核对", "manual")}
         hasExport={app.snapshots.some(
-          (s) => s.resume_id === resumeId && s.kind === "export"
+          (s) => s.resume_id === resumeId && s.kind === "export" &&
+            JSON.stringify(s.resume.data) === JSON.stringify(resume.data) &&
+            JSON.stringify(s.resume.theme) === JSON.stringify(resume.theme) &&
+            s.resume.template_id === resume.template_id && s.resume.locale === resume.locale &&
+            s.jd?.raw_text === app.jds[resumeId]?.raw_text
         )}
         hasApplication={app.applications.some((a) => a.resume_id === resumeId)}
         onStep={(step) => {
@@ -556,7 +582,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
       {/* 内容与预览：宽屏并排，窄屏工具面板使用抽屉 */}
       {mobilePanel !== "none" && (
         <div
-          className="fixed inset-0 z-30 bg-ink-950/45 2xl:hidden"
+          className="fixed inset-0 z-30 bg-ink-950/45 lg:hidden"
           onClick={() => setMobilePanel("none")}
           aria-hidden="true"
         />
@@ -564,21 +590,21 @@ export default function Editor({ resumeId }: { resumeId: string }) {
       <div
         className={cx(
           "grid min-h-0 flex-1 grid-cols-1",
-          editorMode === "content" &&
-            "2xl:grid-cols-[218px_minmax(0,1fr)_320px]"
+          editorMode === "content" && mobilePanel === "outline" && "lg:grid-cols-[218px_minmax(0,1fr)]",
+          editorMode === "content" && mobilePanel === "panel" && "lg:grid-cols-[minmax(0,1fr)_320px]"
         )}
       >
-        {editorMode === "content" && (
+        {editorMode === "content" && mobilePanel === "outline" && (
           <aside
             className={cx(
               "min-h-0 overflow-y-auto border-r border-ink-200 bg-paper-50",
               mobilePanel === "outline"
-                ? "fixed bottom-0 left-0 top-0 z-40 block w-72 shadow-2xl shadow-ink-950/25 2xl:static 2xl:z-auto 2xl:block 2xl:w-auto 2xl:shadow-none"
-                : "hidden 2xl:block"
+                ? "fixed bottom-0 left-0 top-0 z-40 block w-72 shadow-2xl shadow-ink-950/25 lg:static lg:z-auto lg:block lg:w-auto lg:shadow-none"
+                : "hidden"
             )}
           >
             <button
-              className="px-3 py-2 text-[12px] text-ink-500 2xl:hidden"
+              className="px-3 py-2 text-[12px] text-ink-500"
               aria-label="关闭目录"
               onClick={() => setMobilePanel("none")}
             >
@@ -721,17 +747,17 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           </div>
         </main>
 
-        {editorMode === "content" && (
+        {editorMode === "content" && mobilePanel === "panel" && (
           <aside
             className={cx(
               "min-h-0 flex-col border-l border-ink-200 bg-paper-50",
               mobilePanel === "panel"
-                ? "fixed bottom-0 right-0 top-0 z-40 flex w-80 max-w-[88vw] shadow-2xl shadow-ink-950/25 2xl:static 2xl:z-auto 2xl:flex 2xl:max-w-none 2xl:shadow-none"
-                : "hidden 2xl:flex"
+                ? "fixed bottom-0 right-0 top-0 z-40 flex w-80 max-w-[88vw] shadow-2xl shadow-ink-950/25 lg:static lg:z-auto lg:flex lg:max-w-none lg:shadow-none"
+                : "hidden"
             )}
           >
             <button
-              className="self-end px-3 py-2 text-[12px] text-ink-500 2xl:hidden"
+              className="self-end px-3 py-2 text-[12px] text-ink-500"
               aria-label="关闭 AI 与 JD 面板"
               onClick={() => setMobilePanel("none")}
             >
@@ -1155,6 +1181,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           onClose={() => setPreviewOpen(false)}
           onLocate={locate}
           onAdjustLayout={() => { setPreviewOpen(false); setOnePageOpen(true); }}
+          onRecordApplication={() => { setPreviewOpen(false); setApplicationOpen(true); }}
         />
       )}
       {tool && (

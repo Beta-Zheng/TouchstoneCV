@@ -65,6 +65,9 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("updated");
+  const [view, setView] = useState<'list' | 'cards'>('list');
+  let lastBackup: string | null = null;
+  try { lastBackup = localStorage.getItem('resume-last-backup'); } catch { /* Storage may be unavailable. */ }
   const fileRef = useRef<HTMLInputElement>(null);
   const ticket = useRef(0);
   const running = useRef(false);
@@ -196,6 +199,10 @@ export default function Home() {
           </Btn>
         </div>
       </header>
+      <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-500">
+        <span>仅当前浏览器 · {lastBackup ? `最近备份 ${timeAgo(lastBackup)}` : '尚未下载全量备份'}</span>
+        <button className="min-h-8 text-brand-700 underline" onClick={() => app.go({name:'settings'})}>备份与恢复</button>
+      </div>
       {latest && (
         <section className="border-b border-line pb-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -237,6 +244,10 @@ export default function Home() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-lg font-bold">我的简历</h2>
           <div className="flex flex-wrap gap-2">
+            <div className="flex gap-1" role="group" aria-label="简历展示方式">
+              <Btn size="sm" aria-pressed={view === 'list'} onClick={() => setView('list')}>列表</Btn>
+              <Btn size="sm" aria-pressed={view === 'cards'} onClick={() => setView('cards')}>卡片</Btn>
+            </div>
             <input
               aria-label="搜索简历"
               className="field-input w-44"
@@ -285,7 +296,7 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <ul className={view === 'list' ? 'space-y-3' : 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'}>
             {list.map((r) => {
               const problems = inspectResume(r).filter(
                 (i) => i.severity === "warning"
@@ -296,35 +307,38 @@ export default function Home() {
               return (
                 <li
                   key={r.id}
-                  className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-surface"
+                  className={view === 'list' ? 'grid min-w-0 gap-3 rounded-xl border border-line bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_auto]' : 'flex min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-surface'}
                 >
+                  <div className="min-w-0">
                   <button
-                    className="text-left"
+                    className="w-full min-w-0 text-left"
+                    aria-label={`打开简历：${r.title}`}
                     onClick={() => app.go({ name: "editor", resumeId: r.id })}
                   >
-                    <ResumeThumbnail resume={r} />
-                    <p className="truncate px-4 pt-4 text-[16px] font-semibold">
+                    {view === 'cards' && <ResumeThumbnail resume={r} />}
+                    <p title={r.title} className={`truncate text-[16px] font-semibold ${view === 'cards' ? 'px-4 pt-4' : ''}`}>
                       {r.title}
                     </p>
                     {(r.target
                       ? `${r.target.company} · ${r.target.job_title}`
                       : r.data.basic_info.title) !== r.title && (
-                      <p className="mt-1 truncate px-4 text-[13px] text-ink-500">
+                      <p className={`mt-1 truncate text-[13px] text-ink-500 ${view === 'cards' ? 'px-4' : ''}`}>
                         {r.target
                           ? `${r.target.company} · ${r.target.job_title}`
                           : r.data.basic_info.title || "尚未填写目标职位"}
                       </p>
                     )}
                   </button>
-                  <div className="mt-3 flex flex-wrap gap-1 px-4">
+                  <div className={`mt-2 flex flex-wrap items-center gap-2 ${view === 'cards' ? 'px-4' : ''}`}>
                     <span className="chip bg-paper-100">
                       {r.target ? "岗位版本" : "主简历"}
                     </span>
                     {r.archived_at && (
                       <span className="chip bg-paper-100">已归档</span>
                     )}
+                    {view === 'list' && <span className="text-[12px] text-ink-500">{timeAgo(r.updated_at)}更新 · {problems.length ? `${problems.length} 项待核对` : '基础字段已填写'}</span>}
                   </div>
-                  {r.target?.source_resume_id && (
+                  {r.target?.source_resume_id && view === 'cards' && (
                     <p className="mt-2 truncate px-4 text-[12px] text-ink-500">
                       来源：
                       {app.resumes.find(
@@ -332,12 +346,13 @@ export default function Home() {
                       )?.title ?? "原主简历未包含在当前备份中"}
                     </p>
                   )}
-                  <p className="mt-3 px-4 text-[12px] text-ink-500">
+                  {view === 'cards' && <p className="mt-3 px-4 text-[12px] text-ink-500">
                     {problems.length
                       ? `${problems.length} 项待检查`
-                      : "基础检查通过"}
-                  </p>
-                  <details className="mx-4 mb-4 mt-2 text-[12px] text-ink-500">
+                      : "基础字段已填写"}
+                  </p>}
+                  {view === 'list' && <p className="mt-2 text-[12px] text-ink-500">{exp ? `导出准备 ${timeAgo(exp.created_at)}` : '尚未导出'} · {app.applications.filter(a => a.resume_id === r.id).length} 条投递记录</p>}
+                  {view === 'cards' && <details className="mx-4 mb-4 mt-2 text-[12px] text-ink-500">
                     <summary className="cursor-pointer">版本与填写情况</summary>
                     <p className="mt-2">
                       基础字段完成度 {completion(r)}% ·{" "}
@@ -368,8 +383,9 @@ export default function Home() {
                         ? `导出准备于${timeAgo(exp.created_at)}`
                         : "尚未生成导出快照"}
                     </p>
-                  </details>
-                  <div className="mx-4 mb-4 mt-auto flex items-center justify-between border-t border-line pt-3">
+                  </details>}
+                  </div>
+                  <div className={view === 'list' ? 'flex items-center gap-2' : 'mx-4 mb-4 mt-auto flex items-center justify-between border-t border-line pt-3'}>
                     <Btn
                       variant="outline"
                       className="h-8"

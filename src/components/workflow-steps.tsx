@@ -4,12 +4,16 @@ import { inspectResume, moduleFilled } from "../lib/workflow";
 export default function WorkflowSteps({
   resume,
   hasJD,
+  hasTargetReview,
+  onConfirmTarget,
   hasExport,
   hasApplication,
   onStep,
 }: {
   resume: Resume;
   hasJD: boolean;
+  hasTargetReview: boolean;
+  onConfirmTarget: () => void;
   hasExport: boolean;
   hasApplication: boolean;
   onStep: (step: number) => void;
@@ -17,9 +21,10 @@ export default function WorkflowSteps({
   const issues = inspectResume(resume).filter((i) => i.severity === "warning");
   const complete = [
     moduleFilled(resume, "basic_info") &&
+      !issues.some(i => i.sectionId === resume.data.sections.find(s => s.type === 'basic_info')?.section_id) &&
       (!resume.data.metadata.source_text || !!resume.data.metadata.reviewed_at),
     hasJD,
-    !issues.length,
+    hasTargetReview,
     hasExport,
     hasApplication,
   ];
@@ -27,12 +32,12 @@ export default function WorkflowSteps({
     ? 0
     : !hasJD
     ? 1
-    : issues.length
+    : !hasTargetReview
     ? 2
     : !hasExport
     ? 3
     : 4;
-  const labels = ["校对内容", "选择岗位", "补强经历", "检查导出", "记录投递"];
+  const labels = ["校对内容", "选择岗位", "核对岗位内容", "检查导出", "记录投递"];
   return (
     <nav
       aria-label="求职流程"
@@ -61,11 +66,13 @@ export default function WorkflowSteps({
               {i + 1}. {label}
               {complete[i] && (
                 <span className="ml-1 text-[12px] text-ink-400">
-                  {i === 3 ? "已准备" : "已有内容"}
+                  {i === 2 ? "已确认" : i === 3 ? "已准备" : "已有内容"}
                 </span>
               )}
             </button>
           ))}
+          {hasJD && !hasTargetReview && <button className="rounded px-2 py-1.5 font-medium text-brand-700 disabled:opacity-50" disabled={issues.length > 0}
+            title={issues.length ? '请先处理待核对内容' : undefined} onClick={onConfirmTarget}>确认岗位内容已核对</button>}
         </div>
       </details>
     </nav>

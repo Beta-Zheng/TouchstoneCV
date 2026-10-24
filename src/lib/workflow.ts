@@ -5,6 +5,7 @@ import type {
   SectionType,
   CoverLetter,
   JD,
+  ResumeSnapshot,
 } from "../types";
 import { EN_SECTION_LABELS, SECTION_LABELS } from "../types";
 import { stripHtml, nowISO, containsTerm } from "./utils";
@@ -94,6 +95,10 @@ export function inspectResume(r: Resume): ResumeIssue[] {
   )
     add("email", "邮箱格式可能不正确，请核对", basicId);
   if (!hasText(basic.title)) add("title", "请填写目标职位", basicId);
+  if (/x{3,}|[＊*]{3,}|待填写|示例/i.test(basic.phone))
+    add("placeholder-phone", "电话仍含占位内容，请填写实际联系方式", basicId);
+  if (/@example\.(?:com|org|net)$/i.test(basic.email.trim()))
+    add("placeholder-email", "邮箱为示例地址，请核对实际联系方式", basicId);
   if (
     !moduleFilled(r, "work_experience") &&
     !moduleFilled(r, "project_experience")
@@ -159,6 +164,13 @@ export function inspectResume(r: Resume): ResumeIssue[] {
       "info"
     );
   return issues;
+}
+
+/** Confirmation applies to this content and JD, not every later edit of a copy. */
+export function hasReviewedTarget(resume: Resume, jd: JD | undefined, snapshots: ResumeSnapshot[]) {
+  return !!jd && snapshots.some(s => s.resume_id === resume.id && s.kind === 'manual' &&
+    s.label === '岗位内容已核对' && s.jd?.raw_text === jd.raw_text &&
+    JSON.stringify(s.resume.data) === JSON.stringify(resume.data));
 }
 export function completion(r: Resume) {
   const checks = [
