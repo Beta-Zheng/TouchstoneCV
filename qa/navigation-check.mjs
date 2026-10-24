@@ -21,6 +21,7 @@ try{
  await page.locator('[data-testid="live-preview"] [data-preview-page="2"]').waitFor();
  const original=await page.evaluate(async id=>{const {useApp}=await import('/src/lib/store.ts');return JSON.stringify(useApp.getState().resumes.find(r=>r.id===id));},fixture.id);
  const entry=page.locator('.editor-content [data-block-id="nav-entry-7"]');
+ await entry.getByRole('button',{name:'展开',exact:true}).click();
  const field=entry.locator('input').first();await field.focus();
  const highlighted=page.locator('[data-testid="live-preview"] [data-preview-location="true"]');await highlighted.waitFor();
  assert.equal(await highlighted.getAttribute('data-resume-entry'),'nav-entry-7');
@@ -51,6 +52,7 @@ try{
  });
  const visibleScroll=(await panes()).preview;
  const field8=page.locator('.editor-content [data-block-id="nav-entry-8"] input').first();
+ await page.locator('.editor-content [data-block-id="nav-entry-8"]').getByRole('button',{name:'展开',exact:true}).click();
  await field8.focus();await page.waitForFunction(()=>document.querySelector('[data-resume-entry="nav-entry-8"][data-preview-current]'));
  assert(Math.abs((await panes()).preview-visibleScroll)<1);
  await field.focus();
@@ -96,6 +98,7 @@ try{
  await page.waitForFunction(()=>document.querySelector('[data-testid="live-preview"] h2[data-preview-location]'));
  const basic=page.locator('.editor-content [data-section-id="'+fixture.basic+'"] input').first();await basic.focus();
  await page.waitForFunction(()=>document.querySelector('[data-testid="live-preview"] header[data-preview-location]'));
+ await page.locator('.editor-content [data-block-id="nav-hidden"]').getByRole('button',{name:'展开',exact:true}).click();
  await page.locator('.editor-content [data-block-id="nav-hidden"] input').first().focus();
  await page.getByRole('status').filter({hasText:'该内容已隐藏或为空'}).waitFor();
  assert.equal(await page.locator('[data-testid="live-preview"] [data-resume-entry="nav-hidden"]').count(),0);

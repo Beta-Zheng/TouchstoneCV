@@ -392,7 +392,7 @@ export function AIPanel({
             accent="ai"
             icon={<IconSpark size={20} />}
             title="还没有 AI 建议"
-            desc="在中间编辑区任意条目上点击「AI」按钮，选择润色、改写、量化等动作。建议生成后需你确认才会写入简历。"
+            desc="在经历条目上点击「优化这段」，选择需要的动作。生成的建议需确认后才会写入简历。"
           />
         )}
 
@@ -934,7 +934,7 @@ export function JDPanel({
         </p>
         <div className="mb-2.5 flex flex-wrap gap-1">
           <span className="chip bg-paper-200 text-ink-500">
-            {st.education || "学历不限"}
+            {st.education || "学历要求待核对"}
           </span>
           {st.experience_years && (
             <span className="chip bg-paper-200 text-ink-500">
@@ -942,10 +942,10 @@ export function JDPanel({
             </span>
           )}
           <span className="chip bg-paper-200 text-ink-500">
-            {st.responsibilities.length} 条职责
+            {st.responsibilities.length ? `${st.responsibilities.length} 条职责` : '职责尚未识别'}
           </span>
           <span className="chip bg-paper-200 text-ink-500">
-            {st.requirements.length} 条要求
+            {st.requirements.length ? `${st.requirements.length} 条要求` : '要求尚未识别'}
           </span>
         </div>
 
@@ -961,7 +961,7 @@ export function JDPanel({
             <span className="text-[12px] text-ink-500">未识别到技能词</span>
           )}
         </div>
-        <details className="mb-3 rounded-lg border border-line p-2" open>
+        <details className="mb-3 rounded-lg border border-line p-2">
           <summary className="cursor-pointer text-[12px] font-bold">
             JD 原句与简历依据
           </summary>
@@ -987,9 +987,11 @@ export function JDPanel({
                       定位：{match.title}
                     </button>
                   ))
+                ) : item.relatedMatches.length ? (
+                  <div className="mt-1 text-seal-700"><p>发现相关工具证据，需确认实际使用范围：</p>{item.relatedMatches.map(match => <button key={match.blockId} className="mt-1 block text-brand-700 underline" onClick={() => onLocate?.(match.sectionId, match.blockId)}>定位：{match.title}（{match.tools.join('、')}）</button>)}</div>
                 ) : (
                   <p className="mt-1 text-danger-700">
-                    未在可见条目中找到证据，仅在真实经历范围内补充。
+                    未直接匹配到词项，请核对真实经历，不代表缺少该能力。
                   </p>
                 )}
               </div>
@@ -1052,7 +1054,7 @@ export function JDPanel({
             {report.missing_skills.length > 0 && (
               <div>
                 <p className="field-label">
-                  缺失技能（{report.missing_skills.length}）
+                  待核对词项（{report.missing_skills.length}）
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {report.missing_skills.map((s) => (
@@ -1066,6 +1068,7 @@ export function JDPanel({
                 </div>
               </div>
             )}
+            {!!report.related_skills?.length && <div className="rounded-lg bg-seal-100 p-3 text-[12px] text-seal-700"><p className="font-medium">相关工具证据待确认</p>{report.related_skills.map(item => <p key={item.term}>{item.term}：{item.tools.join('、')}</p>)}</div>}
             {report.missing_keywords.length > 0 && (
               <div>
                 <p className="field-label">未覆盖关键词</p>

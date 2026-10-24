@@ -74,11 +74,11 @@ export default function UsageGuide() {
             从创建到投递，只看关键操作。演示资料不会保存。
           </p>
           <div className="flex flex-wrap justify-end gap-2">
-            <Btn variant="ghost" onClick={close}>
+            <Btn variant="primary" onClick={close}>
               直接开始
             </Btn>
             <Btn
-              variant="primary"
+              variant="outline"
               onClick={() => {
                 preferences.remember("started");
                 setStep(0);

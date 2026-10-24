@@ -247,6 +247,7 @@ export interface MatchReport {
   experience_relevance_score: number;
   writing_quality_score: number;
   missing_skills: string[];
+  related_skills?: Array<{ term: string; tools: string[] }>;
   missing_keywords: string[];
   suggestions: string[];
   computed_at: string;

@@ -32,8 +32,14 @@ export function createResumeMeasurer(signal: AbortSignal) {
     async measure(resume: Resume) {
       if(signal.aborted)throw new DOMException('Cancelled','AbortError');
       await new Promise<void>(resolve=>requestAnimationFrame(()=>{if(!signal.aborted)flushSync(()=>root.render(<A4Sheet resume={resume}/>));resolve();}));
+      // Let the committed render reach layout before observing font readiness.
+      // Otherwise a rapid candidate sequence can read the previous frame's size.
+      await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
+      if(signal.aborted)throw new DOMException('Cancelled','AbortError');
+      void host.getBoundingClientRect();
       await document.fonts.ready;
       await Promise.all(Array.from(host.querySelectorAll('img')).map(image=>image.decode().catch(()=>{})));
+      await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
       if(signal.aborted)throw new DOMException('Cancelled','AbortError');
       return readResumeLayout(host,resume);
     },

@@ -78,4 +78,17 @@ describe("匹配与可见内容一致性", () => {
       expect.arrayContaining(["java", "go"])
     );
   });
+  it('相关工具单独展示，不当作缺失能力，也不直接提高词项命中分',()=>{
+    const jd=parseJD('要求：熟悉向量数据库','r1');
+    const report=matchResume('使用 Milvus 实现检索',jd);
+    expect(report.missing_skills).not.toContain('向量数据库');
+    expect(report.related_skills).toEqual([{term:'向量数据库',tools:['Milvus']}]);
+    expect(report.skill_match_score).toBe(0);
+    const r=testResume();r.data.sections[0].blocks[0].skills=['Milvus'];
+    const evidence=jdEvidence(r,jd).find(e=>e.term==='向量数据库')!;
+    expect(evidence.matches).toHaveLength(0);expect(evidence.relatedMatches[0].tools).toEqual(['Milvus']);
+    r.data.sections[0].visible=false;
+    expect(jdEvidence(r,jd)[0].relatedMatches).toHaveLength(0);
+    expect(matchResume('使用其他关系型数据库',jd).related_skills).toHaveLength(0);
+  });
 });

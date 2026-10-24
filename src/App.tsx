@@ -219,6 +219,7 @@ function AppShell() {
           onClick={() => setDrawerOpen(true)}
           className="tool-btn"
           aria-label="打开导航菜单"
+          aria-expanded={drawerOpen}
         >
           <IconMenu size={18} />
         </button>

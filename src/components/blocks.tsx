@@ -694,7 +694,7 @@ export function BlockCard({
     "deleteBlock",
     "moveBlock"
   );
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(() => block.order === 0 || ![block.title, block.description, ...block.bullets, ...block.skills].some(value => stripHtml(value).trim()));
   useEffect(() => {
     if (revealLocation?.sectionId === section.section_id && revealLocation.blockId === block.block_id) setOpen(true);
   }, [revealLocation, section.section_id, block.block_id]);
@@ -944,7 +944,7 @@ export function BlockCard({
                           <input
                             className="field-input min-w-0 flex-1"
                             value={st}
-                            placeholder="补充职位或角色"
+                            placeholder={block.type === 'education_item' ? '补充专业与学历' : '补充职位或角色'}
                             onChange={(e) => {
                               const next = [...(block.subtitles ?? [])];
                               next[i] = e.target.value;
@@ -990,7 +990,7 @@ export function BlockCard({
                       )
                     }
                   >
-                    <IconPlus size={12} /> 补充职位或角色
+                    <IconPlus size={12} /> {block.type === 'education_item' ? '补充专业与学历' : '补充职位或角色'}
                   </button>
                 </Fragment>
               )}

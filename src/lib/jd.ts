@@ -285,7 +285,7 @@ function detectSkills(text: string): string[] {
 /** 解析 JD：岗位名 / 职责 / 要求 / 技能 / 关键词 / 学历 / 年限 */
 export function parseJD(rawText: string, resumeId: string): JD {
   const lines = rawText
-    .split(/\r?\n/)
+    .split(/\r?\n|[。；;]/)
     .map((l) => l.trim())
     .filter(Boolean);
   const lower = rawText.toLowerCase();
@@ -307,22 +307,24 @@ export function parseJD(rawText: string, resumeId: string): JD {
   const requirements: string[] = [];
   let mode: "none" | "resp" | "req" = "none";
   for (const l of lines) {
-    if (/(岗位职责|工作职责|工作内容|你的工作|responsibilities)/i.test(l)) {
+    const respHeading = /^(?:岗位职责|工作职责|工作内容|你的工作|responsibilities)\s*[:：]?\s*(.*)$/i.exec(l);
+    const reqHeading = /^(?:任职要求|岗位要求|职位要求|我们希望你|任职资格|要求|qualifications|requirements)\s*[:：]?\s*(.*)$/i.exec(l);
+    if (respHeading) {
       mode = "resp";
+      if (respHeading[1]) responsibilities.push(respHeading[1]);
       continue;
     }
-    if (
-      /(任职要求|岗位要求|职位要求|我们希望你|任职资格|qualifications|requirements)/i.test(
-        l
-      )
-    ) {
+    if (reqHeading) {
       mode = "req";
+      if (reqHeading[1]) requirements.push(reqHeading[1]);
       continue;
     }
     const isItem = /^(\d+[.、)]|[-•·*])\s*/.test(l);
     const stripped = l.replace(/^(\d+[.、)]|[-•·*])\s*/, "");
-    if (mode === "resp" && isItem) responsibilities.push(stripped);
-    else if (mode === "req" && isItem) requirements.push(stripped);
+    if (/^(负责|参与|承担|主导)/.test(stripped)) responsibilities.push(stripped);
+    else if (/^(需|须|熟悉|精通|掌握|具备|能够|有\d)/.test(stripped)) requirements.push(stripped);
+    else if (mode === "resp" && (isItem || l !== titleLine)) responsibilities.push(stripped);
+    else if (mode === "req" && (isItem || l !== titleLine)) requirements.push(stripped);
   }
   if (!requirements.length) {
     for (const l of lines) {
@@ -371,6 +373,13 @@ export function parseJD(rawText: string, resumeId: string): JD {
 }
 
 /* ---------------- 匹配分析 ---------------- */
+
+/** Related tools are evidence to inspect, never an automatic skills pass. */
+export function relatedSkillTools(text: string, term: string): string[] {
+  if (containsTerm(text, term)) return [];
+  if (!/^(向量数据库|vector databases?)$/i.test(term.trim())) return [];
+  return ['Milvus', 'Qdrant', 'Weaviate', 'Chroma', 'Pinecone'].filter(tool => containsTerm(text, tool));
+}
 
 function pct(matched: number, total: number): number {
   if (total === 0) return 0;
@@ -435,10 +444,11 @@ export function matchResume(
   );
 
   const missing_skills = skills
-    .filter((s) => !containsTerm(resumeText, s))
+    .filter((s) => !containsTerm(resumeText, s) && !relatedSkillTools(resumeText, s).length)
     .slice(0, 10);
+  const related_skills = skills.map(term => ({ term, tools: relatedSkillTools(resumeText, term) })).filter(item => item.tools.length);
   const missing_keywords = kws
-    .filter((k) => !containsTerm(resumeText, k) && !missing_skills.includes(k))
+    .filter((k) => !containsTerm(resumeText, k) && !missing_skills.includes(k) && !relatedSkillTools(resumeText, k).length)
     .slice(0, 12);
 
   const suggestions: string[] = [];
@@ -446,10 +456,11 @@ export function matchResume(
     suggestions.push(
       `待核对技能：JD 提取到 ${
         jd.structured.skills.length
-      } 项技能，简历缺少 ${missing_skills
+      } 项技能，未直接匹配 ${missing_skills
         .slice(0, 5)
-        .join("、")}，建议仅补充真实掌握的部分到「技能」模块`
+        .join("、")}，请先核对相关经历，不能据此认定能力缺失`
     );
+  if (related_skills.length) suggestions.push(`相关工具证据待确认：${related_skills.map(item => `${item.term}（${item.tools.join('、')}）`).join('；')}，请核对具体职责和实际使用范围，无需重复堆砌同义词`);
   if (missing_keywords.length)
     suggestions.push(
       `关键词覆盖不足：可在项目/工作描述的 bullets 中自然融入「${missing_keywords
@@ -480,6 +491,7 @@ export function matchResume(
     experience_relevance_score,
     writing_quality_score,
     missing_skills,
+    related_skills,
     missing_keywords,
     suggestions,
     computed_at: nowISO(),
@@ -557,7 +569,11 @@ export function jdEvidence(resume: Resume, jd: JD) {
                 : [];
             })
         );
-      return { term, sourceLines, priority, matches };
+      const relatedMatches = resume.data.sections.filter(s => s.visible).flatMap(s => s.blocks.filter(b => b.visible).flatMap(b => {
+        const tools = relatedSkillTools([b.title, b.subtitle, b.description, ...b.bullets, ...b.skills].join(' '), term);
+        return tools.length ? [{ sectionId: s.section_id, blockId: b.block_id, title: b.title || s.title, tools }] : [];
+      }));
+      return { term, sourceLines, priority, matches, relatedMatches };
     }
   );
 }

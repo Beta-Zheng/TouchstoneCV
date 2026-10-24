@@ -5,6 +5,7 @@ import {
   inspectResume,
   localizedResume,
   createCoverLetterDraft,
+  hasReviewedTarget,
 } from "../workflow";
 import { paginateResume } from "../pagination";
 import { testBlock, testResume } from "./fixtures";
@@ -12,6 +13,8 @@ import { emptyResume } from "../parser";
 import { buildSampleResume } from "../samples";
 import { hashView, viewHash } from "../navigation";
 import { moveDraftBlock } from "../../components/import-review";
+import { parseJD } from '../jd';
+import type { ResumeSnapshot } from '../../types';
 
 describe("简历核心流程", () => {
   it("空白条目不会提高完成度，姓名单独存在不算基本信息完成", () => {
@@ -45,6 +48,21 @@ describe("简历核心流程", () => {
     expect(inspectResume(r).map((i) => i.id)).toEqual(
       expect.arrayContaining(["email", "date-order-block_test"])
     );
+  });
+  it('示例电话和邮箱必须人工核对，不把非示例地址误报',()=>{
+    const r=testResume();r.data.basic_info.phone='138-XXXX-XXXX';r.data.basic_info.email='hello@example.com';
+    expect(inspectResume(r).map(i=>i.id)).toEqual(expect.arrayContaining(['placeholder-phone','placeholder-email']));
+    r.data.basic_info.phone='13812345678';r.data.basic_info.email='hello@company.cn';
+    expect(inspectResume(r).some(i=>i.id.startsWith('placeholder'))).toBe(false);
+  });
+  it('岗位核对仅适用于确认的内容和JD，创建副本或导出不算确认',()=>{
+    const r=testResume();const jd=parseJD('工程师，熟悉React',r.id);
+    const snapshot={id:'review',resume_id:r.id,kind:'manual',label:'岗位内容已核对',created_at:r.updated_at,resume:structuredClone(r),jd} as ResumeSnapshot;
+    expect(hasReviewedTarget(r,jd,[])).toBe(false);
+    expect(hasReviewedTarget(r,jd,[snapshot])).toBe(true);
+    expect(hasReviewedTarget(r,parseJD('工程师，熟悉Java',r.id),[snapshot])).toBe(false);
+    r.data.basic_info.title='新岗位';
+    expect(hasReviewedTarget(r,jd,[snapshot])).toBe(false);
   });
   it("英文版式转换标准模块名与至今，不改写事实", () => {
     const r = testResume();

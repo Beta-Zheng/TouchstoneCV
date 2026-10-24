@@ -32,6 +32,15 @@ describe("parseJD：JD 结构化解析", () => {
     expect(jd.raw_text).toBe(SAMPLE_JD_TEXT);
     expect(jd.jd_id).toMatch(/^jd_/);
   });
+  it('连续段落与无编号职责要求仍可解析，保留同一行标题后的内容', () => {
+    const paragraph=parseJD('AI 应用工程师。负责企业 RAG 知识库和 Python 服务。要求具备 LangChain、向量数据库经验。能够说明项目稳定性。','r1');
+    expect(paragraph.structured.job_title).toBe('AI 应用工程师');
+    expect(paragraph.structured.responsibilities).toContain('负责企业 RAG 知识库和 Python 服务');
+    expect(paragraph.structured.requirements).toEqual(expect.arrayContaining(['具备 LangChain、向量数据库经验','能够说明项目稳定性']));
+    const inline=parseJD('工程师\n岗位职责：开发接口\n维护系统\n任职要求：熟悉 Python\n具备服务经验','r1');
+    expect(inline.structured.responsibilities).toEqual(['开发接口','维护系统']);
+    expect(inline.structured.requirements).toEqual(['熟悉 Python','具备服务经验']);
+  });
 });
 
 describe("matchResume：简历匹配分析", () => {
