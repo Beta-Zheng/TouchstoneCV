@@ -508,7 +508,7 @@ body { font-size: 14px; }
 .editor-split { display: flex; flex-direction: column; gap: 12px; }
 .editor-split .editor-preview { max-height: 75vh; overflow: auto; }
 @media (min-width: 1280px) {
-  .editor-split { display: grid; height: 100%; min-height: 0; grid-template-columns: minmax(0, var(--editor-split, 43%)) 12px minmax(0, 1fr); gap: 8px; }
+  .editor-split { display: grid; height: 100%; min-height: 0; grid-template-columns: var(--editor-columns, minmax(0, 43%) 12px minmax(0, 1fr)); gap: 8px; }
   .editor-split .editor-content, .editor-split .editor-preview { height: 100%; min-height: 0; max-height: none; overflow: auto; }
 }
 .inline-format { visibility: hidden; }
@@ -527,3 +527,8 @@ body { font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .guide-action { animation: none; } }
 
 .resume-thumbnail { content-visibility: auto; contain-intrinsic-size: 224px; }
+
+/* Current section, keyboard focus and validation errors have separate visual roles. */
+.editor-section-current { position: relative; }
+.editor-section-current::before { content: ""; position: absolute; left: -7px; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--color-brand-400); pointer-events: none; }
+.editor-content .field-label { font-size: 13px; }

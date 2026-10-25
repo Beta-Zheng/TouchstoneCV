@@ -14,6 +14,7 @@ import type {
   ResumeSnapshot,
   RouteStrategy,
   Section,
+  SectionType,
   Suggestion,
 } from "../types";
 import { nowISO, uid } from "./utils";
@@ -42,10 +43,10 @@ import { hasSubmission } from "./applications";
 
 export type View =
   | { name: "home" }
-  | { name: "editor"; resumeId: string }
+  | { name: "editor"; resumeId: string; panel?: "ai" }
   | { name: "models" }
   | { name: "settings" }
-  | { name: "applications" };
+  | { name: "applications"; dueOnly?: boolean };
 // The applications page uses the same local state and backup boundary as resumes.
 
 export interface Toast {
@@ -96,7 +97,7 @@ interface AppState {
   duplicateResume: (id: string) => string | undefined;
   setResumeOptions: (
     id: string,
-    patch: Pick<Partial<Resume>, "locale" | "audience">
+    patch: Pick<Partial<Resume>, "locale" | "audience" | "page_limit">
   ) => void;
   createJobVersion: (
     id: string,
@@ -153,7 +154,8 @@ interface AppState {
     sectionId: string,
     style: BulletStyleKey | null
   ) => void;
-  addSection: (resumeId: string, title: string) => void;
+  addSection: (resumeId: string, title: string, structure?: Block["type"]) => void;
+  setSectionType: (resumeId: string, sectionId: string, type: Exclude<SectionType, "basic_info">) => void;
   deleteSection: (resumeId: string, sectionId: string) => void;
 
   requestSuggestion: (
@@ -516,6 +518,7 @@ export const useApp = create<AppState>()(
         const copy = JSON.parse(JSON.stringify(src)) as Resume;
         copy.id = uid("resume");
         copy.title = `${src.title} 副本`;
+        copy.copy_source_id = src.id;
         copy.created_at = nowISO();
         copy.updated_at = nowISO();
         copy.archived_at = undefined;
@@ -548,6 +551,8 @@ export const useApp = create<AppState>()(
         const copy = structuredClone(source);
         copy.id = uid("resume");
         copy.title = `${company.trim()} · ${role.trim()}`;
+        copy.copy_source_id = undefined;
+        copy.page_limit = undefined;
         copy.target = {
           company: company.trim(),
           job_title: role.trim(),
@@ -775,7 +780,7 @@ export const useApp = create<AppState>()(
               ...sec,
               blocks: [
                 ...sec.blocks,
-                blankBlock(BLOCK_TYPE_BY_SECTION[sec.type], sec.blocks.length),
+                blankBlock(sec.type === "custom" ? sec.blocks[0]?.type ?? "custom_text" : BLOCK_TYPE_BY_SECTION[sec.type], sec.blocks.length),
               ],
             }))
           )
@@ -856,7 +861,11 @@ export const useApp = create<AppState>()(
           )
         ),
 
-      addSection: (resumeId, title) =>
+      setSectionType: (resumeId, sectionId, type) =>
+        set(s => withResume(s, resumeId, r => mapSection(r, sectionId, sec =>
+          sec.type === "basic_info" ? sec : { ...sec, type }))),
+
+      addSection: (resumeId, title, structure = "custom_text") =>
         set((s) =>
           withResume(s, resumeId, (r) => ({
             ...r,
@@ -870,7 +879,7 @@ export const useApp = create<AppState>()(
                   title: title || "自定义模块",
                   visible: true,
                   order: r.data.sections.length,
-                  blocks: [blankBlock("custom_text", 0)],
+                  blocks: [{ ...blankBlock(structure, 0), bullets: structure === "custom_text" ? [""] : [] }],
                 },
               ],
             },
@@ -1326,6 +1335,7 @@ export const useApp = create<AppState>()(
             const remapResume = (r: Resume): Resume => ({
               ...r,
               id: resumeIds.get(r.id)!,
+              copy_source_id: r.copy_source_id ? resumeIds.get(r.copy_source_id) : undefined,
               target: r.target
                 ? {
                     ...r.target,

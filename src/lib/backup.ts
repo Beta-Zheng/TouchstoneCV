@@ -138,6 +138,8 @@ const resume = object({
       : choice(Object.keys(AUDIENCE_LABELS))(value)
   ),
   archived_at: optional(date),
+  copy_source_id: optional(id),
+  page_limit: optional(v => v === 1 || v === 2 ? v : fail()),
   target: optional(
     object({
       company: text,

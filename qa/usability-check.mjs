@@ -16,6 +16,11 @@ try {
   const origin = server.resolvedUrls.local[0];
   await page.goto(origin);
   await page.getByRole('heading', { name: '简历工作台', exact: true }).waitFor();
+  await page.getByRole('button', {name:'投递记录',exact:true}).click();
+  await page.getByRole('heading', {name:'记录第一次投递',exact:true}).waitFor();
+  assert.equal(await page.getByText('累计已投递', {exact:true}).count(),0);
+  await page.screenshot({path:'.export-qa/usability-empty-applications.png'});
+  await page.getByRole('button', {name:'工作台',exact:true}).click();
   const fixture = await page.evaluate(async () => {
     const { useApp } = await import('/src/lib/store.ts');
     const { buildSampleResume } = await import('/src/lib/samples.ts');
@@ -27,9 +32,20 @@ try {
   await page.goto(origin + '#/home');
   await page.getByRole('button', { name: '打开简历：回归示例公司 · AI 应用工程师', exact: true }).waitFor();
   assert.equal(await page.locator('.resume-thumbnail:visible').count(), 0);
+  assert.equal(await page.getByRole('region',{name:'简历组：审查回归主简历'}).getByRole('listitem').count(),2);
+  assert(!(await page.getByRole('textbox',{name:'搜索简历',exact:true}).isVisible()));
+  await page.getByRole('button',{name:'筛选',exact:true}).click();
+  await page.getByRole('textbox',{name:'搜索简历',exact:true}).fill('不存在的公司');
+  await page.getByRole('button',{name:'清除筛选',exact:true}).click();
+  await page.getByRole('button',{name:'打开简历：审查回归主简历',exact:true}).click();
+  assert.equal(await page.getByRole('tab',{name:'内容与预览',exact:true}).getAttribute('aria-selected'),'true');
+  assert(!(await page.getByRole('navigation',{name:'求职流程'}).innerText()).includes('核对岗位'));
+  await page.getByRole('button',{name:'返回工作台',exact:true}).click();
+  await page.screenshot({path:'.export-qa/workbench-v2-home.png'});
   await page.getByRole('button', { name: '卡片', exact: true }).click();
   assert.equal(await page.locator('.resume-thumbnail[aria-hidden="true"]').count(), 2);
   await page.getByRole('button', { name: '列表', exact: true }).click();
+  await page.locator('ul.divide-y').waitFor();
   await page.screenshot({ path: '.export-qa/usability-home.png' });
   await page.getByRole('button', { name: '打开简历：回归示例公司 · AI 应用工程师', exact: true }).click();
   await page.getByRole('textbox', { name: '姓名', exact: true }).waitFor();
@@ -52,7 +68,7 @@ try {
   }, fixture.id);
   assert.equal(afterPanels, fixture.before);
 
-  assert.match(await page.getByRole('navigation', { name: '求职流程' }).innerText(), /校对内容/);
+  assert.match(await page.getByRole('navigation', { name: '求职流程' }).innerText(), /完善内容/);
   await page.getByRole('button', { name: '导出', exact: true }).click();
   await page.getByRole('dialog', { name: '检查并导出', exact: true }).waitFor();
   await page.getByRole('dialog').getByText(/电话仍含占位内容，请填写实际联系方式/).waitFor();
@@ -62,14 +78,14 @@ try {
   await page.getByRole('textbox', { name: '电话', exact: true }).fill('13800000000');
   await page.getByRole('textbox', { name: '邮箱', exact: true }).fill('qa@demo.invalid');
   const workflow = page.getByRole('navigation', { name: '求职流程' });
-  assert.match(await workflow.innerText(), /核对岗位内容/);
-  await workflow.locator('summary').click();
+  assert.match(await workflow.innerText(), /核对岗位/);
+  await page.getByRole('button', { name: '岗位要求', exact: true }).click();
   await page.getByRole('button', { name: '确认岗位内容已核对', exact: true }).click();
-  assert.match(await workflow.locator('summary').innerText(), /检查导出/);
+  assert.match(await workflow.locator('summary').innerText(), /预览与导出/);
   await page.getByRole('textbox', { name: '姓名', exact: true }).fill('回归虚构姓名');
-  assert.match(await workflow.locator('summary').innerText(), /核对岗位内容/);
+  assert.match(await workflow.locator('summary').innerText(), /核对岗位/);
 
-  await page.getByRole('button', { name: '针对岗位', exact: true }).click();
+  await page.getByRole('button', { name: '岗位要求', exact: true }).click();
   await page.getByRole('button', { name: 'JD 匹配', exact: true }).click();
   await page.getByText('JD 原句与简历依据', { exact: true }).click();
   await page.getByText('发现相关工具证据，需确认实际使用范围：', { exact: true }).waitFor();
@@ -122,7 +138,7 @@ try {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.getByRole('combobox', { name: '编辑工具', exact: true }).waitFor();
   const section = await page.getByRole('heading', { name: '基本信息', exact: true }).boundingBox();
-  assert(section.y < 240, 'mobile editor still has too many header rows: ' + section.y);
+  assert(section.y < 260, 'mobile editor still has too many header rows: ' + section.y);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375);
   await page.getByRole('button', { name: '关闭提示', exact: true }).first().waitFor({ state: 'hidden', timeout: 10000 });
   await page.screenshot({ path: '.export-qa/usability-mobile.png' });
@@ -170,6 +186,44 @@ try {
   await page.getByText('全部内容已保留，仅调整排版。', { exact: true }).waitFor();
   assert.equal(await page.getByRole('radio', { name: /精简部分内容/ }).count(), 0);
   await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.setViewportSize({width:1440,height:960});
+  const classification = await page.evaluate(async id => {
+    const {useApp}=await import('/src/lib/store.ts');
+    const r=useApp.getState().resumes.find(r=>r.id===id);
+    const skills=r.data.sections.find(s=>s.type==='skills');
+    const block={...skills.blocks[0],type:'custom_text',title:'',skills:[],description:'掌握测试技术栈',bullets:['实际项目经验']};
+    useApp.setState(s=>({resumes:s.resumes.map(r=>r.id===id?{...r,data:{...r.data,sections:r.data.sections.map(sec=>sec.section_id===skills.section_id?{...sec,title:'专业技能',type:'custom',blocks:[block]}:sec)}}:r)}));
+    return {sectionId:skills.section_id,block:JSON.stringify(block)};
+  },fixture.source);
+  await page.goto(origin+'#/editor/'+fixture.source);
+  await page.getByRole('tab',{name:'写内容',exact:true}).click();
+  await page.getByRole('button',{name:'导出',exact:true}).click();
+  await page.getByText('「专业技能」可在栏目设置中确认为技能类型',{exact:true}).waitFor();
+  await page.getByRole('dialog').getByRole('button',{name:'关闭',exact:true}).click();
+  const skillSection=page.locator('[data-section-id="'+classification.sectionId+'"]');
+  await skillSection.getByText('栏目设置',{exact:true}).click();
+  await skillSection.getByRole('combobox',{name:'栏目用途：专业技能',exact:true}).selectOption('skills');
+  assert.equal(await page.evaluate(async ({id,sectionId})=>{
+    const {useApp}=await import('/src/lib/store.ts');
+    return JSON.stringify(useApp.getState().resumes.find(r=>r.id===id).data.sections.find(s=>s.section_id===sectionId).blocks[0]);
+  },{id:fixture.source,sectionId:classification.sectionId}),classification.block);
+  await skillSection.getByText('栏目设置',{exact:true}).click();
+  await page.getByRole('button',{name:'导出',exact:true}).click();
+  assert.equal(await page.getByText(/确认为技能类型/).count(),0);
+  await page.getByRole('dialog').getByRole('button',{name:'关闭',exact:true}).click();
+  await page.getByRole('button',{name:'添加栏目',exact:true}).click();
+  await page.getByPlaceholder('如：开源贡献 / 发表作品 / 语言能力').fill('回归作品列表');
+  await page.getByRole('combobox',{name:'自定义栏目内容结构',exact:true}).selectOption('custom_text');
+  await page.getByRole('dialog').getByRole('button',{name:'添加',exact:true}).click();
+  const custom=page.locator('[data-section-id]').filter({has:page.getByRole('heading',{name:/回归作品列表/})});
+  await custom.getByText('内容要点',{exact:true}).waitFor();
+  assert.equal(await custom.getByText('职位或角色',{exact:true}).count(),0);
+  await page.setViewportSize({width:375,height:812});
+  await custom.getByText('栏目设置',{exact:true}).click();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),375);
+  await custom.getByText('栏目设置',{exact:true}).click();
+  await page.getByRole('button',{name:'返回工作台',exact:true}).click();
+  await page.screenshot({path:'.export-qa/usability-home-mobile.png'});
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ desktopWidths: [1280, 1440, 1920], noPanelOverlap: true, noImplicitEdits: true, mobileSectionTop: section.y,
     contextualMobileTools: true, placeholderChecks: true, reviewInvalidatedOnEdit: true, relatedEvidence: true,

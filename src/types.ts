@@ -150,6 +150,9 @@ export interface Resume {
   locale?: "zh" | "en";
   audience?: ResumeAudience;
   archived_at?: string;
+  /** Source of an independent copy; never implies automatic synchronization. */
+  copy_source_id?: string;
+  page_limit?: 1 | 2;
   target?: {
     company: string;
     job_title: string;

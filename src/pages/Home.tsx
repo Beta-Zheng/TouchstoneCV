@@ -10,10 +10,12 @@ import {
   type SupportedExt,
 } from "../lib/parser";
 import { buildSampleResume, type SampleKind } from "../lib/samples";
-import { nowISO, timeAgo } from "../lib/utils";
+import { nowISO, timeAgo, fmtDate } from "../lib/utils";
 import { useAppSlice } from "../lib/store";
 import {
   CORE_MODULES,
+  groupResumeFamilies,
+  isCurrentExport,
   completion,
   inspectResume,
   moduleFilled,
@@ -21,6 +23,7 @@ import {
 } from "../lib/workflow";
 import { Btn, Confirm, Modal, ModalHeader } from "../components/ui";
 import ImportReview from "../components/import-review";
+import { TERMINAL_STATUSES } from "../lib/applications";
 import ResumeThumbnail from "../components/resume-thumbnail";
 import {
   IconArrowRight,
@@ -40,6 +43,7 @@ const SAMPLE_KINDS = {
 export default function Home() {
   const app = useAppSlice(
     "resumes",
+    "jds",
     "suggestions",
     "snapshots",
     "applications",
@@ -65,6 +69,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("updated");
+  const [showFilters, setShowFilters] = useState(() => app.resumes.length > 5);
   const [view, setView] = useState<'list' | 'cards'>('list');
   let lastBackup: string | null = null;
   try { lastBackup = localStorage.getItem('resume-last-backup'); } catch { /* Storage may be unavailable. */ }
@@ -103,7 +108,11 @@ export default function Home() {
   const latest = app.resumes
     .filter((r) => !r.archived_at)
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
-  const issues = latest ? inspectResume(latest) : [];
+  const due = app.applications.filter(a => a.follow_up_at && a.follow_up_at <= fmtDate(nowISO()) && !TERMINAL_STATUSES.includes(a.status));
+  const pending = app.suggestions.filter(s => s.status === 'success' && !s.resolution && app.resumes.some(r => r.id === s.resume_id && !r.archived_at));
+  const pendingResumes = app.resumes.filter(r => pending.some(s => s.resume_id === r.id));
+  const families = groupResumeFamilies(list, app.resumes);
+
   const openCreate = (next: CreateTab = "start") => {
     setOpen(true);
     setTab(next);
@@ -175,7 +184,7 @@ export default function Home() {
   };
   return (
     <div
-      className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 pt-7 sm:px-6"
+      className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-16 pt-7 sm:px-6"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
@@ -203,51 +212,23 @@ export default function Home() {
         <span>仅当前浏览器 · {lastBackup ? `最近备份 ${timeAgo(lastBackup)}` : '尚未下载全量备份'}</span>
         <button className="min-h-8 text-brand-700 underline" onClick={() => app.go({name:'settings'})}>备份与恢复</button>
       </div>
-      {latest && (
-        <section className="border-b border-line pb-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="mb-1 text-[12px] text-ink-500">最近编辑</p>
-              <h2 className="text-[16px] font-semibold">{latest.title}</h2>
-              <p className="mt-1 text-[12px] text-ink-500">
-                {issues.find((i) => i.severity === "warning")?.message ??
-                  `${timeAgo(latest.updated_at)}更新`}
-              </p>
-            </div>
-            <Btn
-              variant="outline"
-              onClick={() => app.go({ name: "editor", resumeId: latest.id })}
-            >
-              继续编辑 <IconArrowRight size={13} />
-            </Btn>
-          </div>
-        </section>
-      )}
-      <div className="flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-ink-500">
-        {[
-          ["在用简历", app.resumes.filter((r) => !r.archived_at).length],
-          [
-            "待审阅建议",
-            app.suggestions.filter(
-              (s) => s.status === "success" && !s.resolution
-            ).length,
-          ],
-          ["投递记录", app.applications.length],
-        ].map(([label, value]) => (
-          <div key={String(label)} className="flex items-center gap-2">
-            <span>{label}</span>
-            <span className="font-semibold text-ink-800">{value}</span>
-          </div>
-        ))}
-      </div>
+      {(due.length > 0 || pending.length > 0) && <section aria-label="待办事项" className="rounded-lg bg-surface p-4 border border-line">
+        <h2 className="mb-2 text-[15px] font-semibold">待办事项</h2>
+        <div className="flex flex-wrap gap-2">
+          {due.length > 0 && <Btn onClick={() => app.go({name:'applications',dueOnly:true})}>需跟进投递 {due.length} 条 <IconArrowRight size={13} /></Btn>}
+          {pendingResumes.map(r => <Btn key={r.id} onClick={() => app.go({name:'editor',resumeId:r.id,panel:'ai'})}>审阅建议：{r.title} <span>{pending.filter(s => s.resume_id === r.id).length} 项</span></Btn>)}
+        </div>
+      </section>}
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-bold">我的简历</h2>
+          <h2 className="text-lg font-semibold">我的简历 <span className="ml-1 text-[13px] font-normal text-ink-500">{list.length}</span></h2>
           <div className="flex flex-wrap gap-2">
             <div className="flex gap-1" role="group" aria-label="简历展示方式">
               <Btn size="sm" aria-pressed={view === 'list'} onClick={() => setView('list')}>列表</Btn>
               <Btn size="sm" aria-pressed={view === 'cards'} onClick={() => setView('cards')}>卡片</Btn>
             </div>
+            <Btn size="sm" aria-expanded={showFilters} onClick={() => setShowFilters(v => !v)}>筛选{query || filter !== 'all' ? ' · 已启用' : ''}</Btn>
+            {showFilters && <>
             <input
               aria-label="搜索简历"
               className="field-input w-44"
@@ -262,7 +243,7 @@ export default function Home() {
               onChange={(e) => setFilter(e.target.value)}
             >
               <option value="all">全部版本</option>
-              <option value="master">主简历</option>
+              <option value="master">通用简历</option>
               <option value="target">岗位版本</option>
               <option value="archived">已归档</option>
             </select>
@@ -275,6 +256,7 @@ export default function Home() {
               <option value="updated">最近更新</option>
               <option value="title">名称排序</option>
             </select>
+            </>}
           </div>
         </div>
         {!list.length ? (
@@ -282,22 +264,28 @@ export default function Home() {
             <IconFile size={30} className="mx-auto text-ink-500" />
             <p className="mt-3 font-bold">
               {app.resumes.length
-                ? "没有符合条件的简历"
+                ? (query || filter !== "all" ? "没有符合条件的简历" : "暂无在用简历")
                 : "从已有简历或示例开始"}
             </p>
             <p className="mt-2 text-[12px] text-ink-500">
               内容保存在本机，可随时下载备份。
             </p>
             <div className="mt-4 flex justify-center gap-2">
-              <Btn variant="primary" onClick={() => openCreate()}>
-                新建简历
-              </Btn>
-              <Btn onClick={() => openCreate("samples")}>选择示例</Btn>
+              {app.resumes.length && (query || filter !== 'all') ? <Btn onClick={() => { setQuery(''); setFilter('all'); }}>清除筛选</Btn> : app.resumes.length ? <>
+                <Btn onClick={() => { setFilter('archived'); setShowFilters(true); }}>查看已归档</Btn>
+                <Btn variant="primary" onClick={() => openCreate()}>新建简历</Btn>
+              </> : <>
+                <Btn variant="primary" onClick={() => openCreate()}>新建简历</Btn>
+                <Btn onClick={() => openCreate("samples")}>选择示例</Btn>
+              </>}
             </div>
           </div>
         ) : (
-          <ul className={view === 'list' ? 'space-y-3' : 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'}>
-            {list.map((r) => {
+          <div className="space-y-5">
+          {families.map(family => <section key={family.id} aria-label={`简历组：${family.title}`}>
+          {(family.resumes.length > 1 || family.resumes[0]?.id !== family.id) && <h3 className="mb-2 text-[13px] font-medium text-ink-600">{family.title} · {family.resumes.length} 份</h3>}
+          <ul className={view === 'list' ? 'divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface' : 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'}>
+            {family.resumes.map((r) => {
               const problems = inspectResume(r).filter(
                 (i) => i.severity === "warning"
               );
@@ -307,7 +295,7 @@ export default function Home() {
               return (
                 <li
                   key={r.id}
-                  className={view === 'list' ? 'grid min-w-0 gap-3 rounded-xl border border-line bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_auto]' : 'flex min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-surface'}
+                  className={view === 'list' ? 'grid min-w-0 gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto]' : 'flex min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-surface'}
                 >
                   <div className="min-w-0">
                   <button
@@ -331,19 +319,20 @@ export default function Home() {
                   </button>
                   <div className={`mt-2 flex flex-wrap items-center gap-2 ${view === 'cards' ? 'px-4' : ''}`}>
                     <span className="chip bg-paper-100">
-                      {r.target ? "岗位版本" : "主简历"}
+                      {r.target ? "岗位版本" : r.copy_source_id ? "独立副本" : "通用简历"}
                     </span>
                     {r.archived_at && (
                       <span className="chip bg-paper-100">已归档</span>
                     )}
+                    {r.page_limit && <span className="chip bg-paper-100">目标 {r.page_limit} 页</span>}
                     {view === 'list' && <span className="text-[12px] text-ink-500">{timeAgo(r.updated_at)}更新 · {problems.length ? `${problems.length} 项待核对` : '基础字段已填写'}</span>}
                   </div>
-                  {r.target?.source_resume_id && view === 'cards' && (
-                    <p className="mt-2 truncate px-4 text-[12px] text-ink-500">
+                  {(r.copy_source_id || r.target?.source_resume_id) && (
+                    <p className={`mt-1 truncate text-[12px] text-ink-500 ${view === "cards" ? "px-4" : ""}`}>
                       来源：
                       {app.resumes.find(
-                        (source) => source.id === r.target?.source_resume_id
-                      )?.title ?? "原主简历未包含在当前备份中"}
+                        (source) => source.id === (r.copy_source_id || r.target?.source_resume_id)
+                      )?.title ?? "来源简历未包含在当前备份中"}
                     </p>
                   )}
                   {view === 'cards' && <p className="mt-3 px-4 text-[12px] text-ink-500">
@@ -351,7 +340,7 @@ export default function Home() {
                       ? `${problems.length} 项待检查`
                       : "基础字段已填写"}
                   </p>}
-                  {view === 'list' && <p className="mt-2 text-[12px] text-ink-500">{exp ? `导出准备 ${timeAgo(exp.created_at)}` : '尚未导出'} · {app.applications.filter(a => a.resume_id === r.id).length} 条投递记录</p>}
+                  {view === 'list' && <p className="mt-2 text-[12px] text-ink-500">{exp ? `${isCurrentExport(r, app.jds[r.id], exp) ? '当前内容已准备导出' : '导出后有修改'} · ${timeAgo(exp.created_at)}` : '尚未导出'} · {app.applications.filter(a => a.resume_id === r.id).length} 条投递记录</p>}
                   {view === 'cards' && <details className="mx-4 mb-4 mt-2 text-[12px] text-ink-500">
                     <summary className="cursor-pointer">版本与填写情况</summary>
                     <p className="mt-2">
@@ -391,7 +380,7 @@ export default function Home() {
                       className="h-8"
                       onClick={() => app.go({ name: "editor", resumeId: r.id })}
                     >
-                      打开
+                      {r.id === latest?.id ? '继续编辑' : '打开'}
                     </Btn>
                     <div className="flex gap-1">
                       <button
@@ -420,6 +409,8 @@ export default function Home() {
               );
             })}
           </ul>
+          </section>)}
+          </div>
         )}
       </section>
       <Modal

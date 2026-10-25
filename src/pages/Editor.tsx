@@ -1,5 +1,7 @@
 import {
+  Fragment,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -24,7 +26,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { AIAction, Resume, Section } from "../types";
+import type { AIAction, Block, Resume, Section } from "../types";
 import { AUDIENCE_LABELS, TEMPLATES } from "../types";
 import { cx } from "../lib/utils";
 import { useAppSlice, useResume } from "../lib/store";
@@ -40,7 +42,7 @@ import WorkflowDialog, {
 } from "../components/workflow-dialog";
 import { ApplicationForm } from "./Applications";
 import type { PageLayout } from "../lib/pagination";
-import { completion, inspectResume, hasReviewedTarget } from "../lib/workflow";
+import { completion, inspectResume, hasReviewedTarget, isCurrentExport } from "../lib/workflow";
 import { Btn, Modal, ModalHeader, SaveIndicator } from "../components/ui";
 import { flashLocation, scrollInPane, type ResumeLocation } from "../lib/preview-navigation";
 import {
@@ -133,7 +135,7 @@ function SortableSection({
       }}
       className={cx(
         "rounded-xl transition-[opacity,box-shadow] duration-300",
-        highlight && !isDragging && "ring-1 ring-brand-200",
+        highlight && !isDragging && "editor-section-current",
         isDragging &&
           "z-20 opacity-95 shadow-[0_24px_48px_-12px_rgba(99,102,241,0.45)] ring-1 ring-brand-300"
       )}
@@ -159,7 +161,7 @@ function SortableSection({
   );
 }
 
-export default function Editor({ resumeId }: { resumeId: string }) {
+export default function Editor({ resumeId, initialPanel }: { resumeId: string; initialPanel?: "ai" }) {
   const resume = useResume(resumeId);
   const parentResume = useResume(resume?.target?.source_resume_id);
   const [sourceUpdateOpen, setSourceUpdateOpen] = useState(false);
@@ -194,7 +196,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
   const [onePageOpen, setOnePageOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<
     "content" | "layout" | "preview"
-  >("content");
+  >(() => !initialPanel && window.matchMedia("(min-width: 1280px)").matches ? "layout" : "content");
   const [canSplit, setCanSplit] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -216,11 +218,34 @@ export default function Editor({ resumeId }: { resumeId: string }) {
     "document" | "template" | "style" | "layout"
   >("template");
   const [splitRatio, setSplitRatio] = useState(43);
+  const [previewOnLeft, setPreviewOnLeft] = useState(() => {
+    try { return localStorage.getItem('resume-preview-side') === 'left'; } catch { return false; }
+  });
+  const paneScrollBeforeSwap = useRef<{content:number; preview:number} | null>(null);
+  useLayoutEffect(() => {
+    const saved = paneScrollBeforeSwap.current;
+    const content = splitRef.current?.querySelector<HTMLElement>('.editor-content');
+    const preview = splitRef.current?.querySelector<HTMLElement>('.editor-preview');
+    if (saved && content && preview) {
+      content.scrollTop = saved.content;
+      preview.scrollTop = saved.preview;
+      paneScrollBeforeSwap.current = null;
+    }
+  }, [previewOnLeft]);
+  const swapPanes = () => {
+    const content = splitRef.current?.querySelector<HTMLElement>('.editor-content');
+    const preview = splitRef.current?.querySelector<HTMLElement>('.editor-preview');
+    if (content && preview) paneScrollBeforeSwap.current = {content:content.scrollTop, preview:preview.scrollTop};
+    const next = !previewOnLeft;
+    setPreviewOnLeft(next);
+    try { localStorage.setItem('resume-preview-side', next ? 'left' : 'right'); } catch { /* Session preference still works when storage is unavailable. */ }
+  };
   const splitRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<WorkflowTool | null>(null);
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [livePages, setLivePages] = useState<PageLayout[]>([]);
   const [addSecOpen, setAddSecOpen] = useState(false);
+  const [newSecStructure, setNewSecStructure] = useState<Block["type"]>("summary");
   const [newSecTitle, setNewSecTitle] = useState("");
 
   const sensors = useSensors(
@@ -240,7 +265,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
   const [hoverSection, setHoverSection] = useState<string | null>(null);
   // 移动端（<md）左右两栏折叠为抽屉：none=仅中栏，outline=模块大纲，panel=AI/JD 面板
   const [mobilePanel, setMobilePanel] = useState<"none" | "outline" | "panel">(
-    "none"
+    initialPanel ? "panel" : "none"
   );
   // 正在输入时不淡化：编辑动作发生在某个卡片内部，淡化它的邻居会干扰输入
   const sectionIdsKey = sections.map((s) => s.section_id).join(",");
@@ -378,6 +403,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
             <SaveIndicator />
           </div>
           <div className="shrink-0 sm:hidden"><SaveIndicator compact /></div>
+          <div className="hidden sm:contents"><Btn variant="ghost" onClick={() => setTool("versions")}>历史版本</Btn></div>
           <Btn
             variant="ghost"
             className="shrink-0"
@@ -458,8 +484,8 @@ export default function Editor({ resumeId }: { resumeId: string }) {
         <Btn size="sm" className="hidden sm:inline-flex" onClick={() => {
           if (!resume.target) setTool("target");
           else { setEditorMode("content"); setPanelTab("jd"); setMobilePanel("panel"); }
-        }}>针对岗位</Btn>
-        <Btn size="sm" className="hidden sm:inline-flex" onClick={() => setTool("versions")}>历史版本</Btn>
+        }}>{resume.target ? "岗位要求" : "创建岗位版本"}</Btn>
+
         <select data-ui-select
           aria-label="辅助工具"
           className="editor-tool-select hidden min-h-8 max-w-32 rounded-sm border border-line bg-white px-3 py-1.5 text-[13px] sm:block"
@@ -474,7 +500,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           <option value="letter">求职信</option>
           <option value="source">导入原文</option>
         </select>
-        <Btn size="sm" className="hidden sm:inline-flex" onClick={() => setOnePageOpen(true)}>篇幅调整</Btn>
+
         </div>
         <select data-ui-select aria-label="编辑工具" value="" className="editor-tool-select ml-auto min-h-8 max-w-28 rounded-sm border border-line bg-white px-2 text-[13px] sm:hidden"
           onChange={e => {
@@ -486,10 +512,12 @@ export default function Editor({ resumeId }: { resumeId: string }) {
             else if (value === "parent" && parentResume) app.go({name:'editor',resumeId:parentResume.id});
             else if (value) setTool(value as WorkflowTool);
           }}>
-          <option value="">更多</option><option value="outline">内容目录</option><option value="target">针对岗位</option><option value="panel">内容建议</option><option value="layout">篇幅调整</option><option value="versions">历史版本</option><option value="letter">求职信</option><option value="source">导入原文</option>
+          <option value="">更多</option><option value="outline">内容目录</option><option value="target">{resume.target ? "岗位要求" : "创建岗位版本"}</option><option value="panel">内容建议</option><option value="layout">篇幅调整</option><option value="versions">历史版本</option><option value="letter">求职信</option><option value="source">导入原文</option>
           {parentResume && <option value="relation">主简历更新</option>}
           {parentResume && <option value="parent">查看主简历</option>}
         </select>
+        {editorMode === "layout" && <Btn size="sm" variant="ghost" aria-pressed={previewOnLeft}
+          title={previewOnLeft ? '将内容放到左侧、预览放到右侧' : '将预览放到左侧、内容放到右侧'} onClick={swapPanes}>切换左右</Btn>}
         {editorMode === "layout" && <Btn size="sm" variant="ghost" disabled={!previewLocation}
           onClick={() => { if (previewLocation) setPreviewLocation({ ...previewLocation, scroll: true, requestId: ++navigationId.current }); }}>
           定位预览
@@ -547,15 +575,8 @@ export default function Editor({ resumeId }: { resumeId: string }) {
         resume={resume}
         hasJD={!!app.jds[resumeId]}
         hasTargetReview={hasReviewedTarget(resume, app.jds[resumeId], app.snapshots)}
-        onConfirmTarget={() => app.captureSnapshot(resumeId, "岗位内容已核对", "manual")}
-        hasExport={app.snapshots.some(
-          (s) => s.resume_id === resumeId && s.kind === "export" &&
-            JSON.stringify(s.resume.data) === JSON.stringify(resume.data) &&
-            JSON.stringify(s.resume.theme) === JSON.stringify(resume.theme) &&
-            s.resume.template_id === resume.template_id && s.resume.locale === resume.locale &&
-            s.jd?.raw_text === app.jds[resumeId]?.raw_text
-        )}
-        hasApplication={app.applications.some((a) => a.resume_id === resumeId)}
+        hasExport={app.snapshots.some(s => isCurrentExport(resume, app.jds[resumeId], s))}
+        hasApplication={app.applications.some((a) => a.resume_id === resumeId && a.status !== "saved" && !!a.snapshot_id)}
         onStep={(step) => {
           if (step === 0) {
             if (resume.data.metadata.source_text) setTool("source");
@@ -574,7 +595,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
               setEditorMode("content");
               setMobilePanel("panel");
             }
-          } else if (step === 2) setTool("module");
+          } else if (step === 2) { setPanelTab("jd"); setEditorMode("content"); setMobilePanel("panel"); }
           else if (step === 3) setPreviewOpen(true);
           else setApplicationOpen(true);
         }}
@@ -637,9 +658,10 @@ export default function Editor({ resumeId }: { resumeId: string }) {
           <div
             ref={splitRef}
             className={cx(editorMode === "layout" && "editor-split")}
-            style={{ "--editor-split": `${splitRatio}%` } as CSSProperties}
+            style={{ "--editor-columns": previewOnLeft ? `minmax(0, 1fr) 12px minmax(0, ${splitRatio}%)` : `minmax(0, ${splitRatio}%) 12px minmax(0, 1fr)` } as CSSProperties}
           >
-            {editorMode !== "preview" && (
+            {(previewOnLeft ? ['preview', 'divider', 'content'] : ['content', 'divider', 'preview']).map(pane => <Fragment key={pane}>
+            {pane === 'content' && editorMode !== "preview" && (
               <>
                 <DndContext
                   sensors={sensors}
@@ -683,7 +705,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 </DndContext>
               </>
             )}
-            {editorMode === "layout" && (
+            {pane === "divider" && editorMode === "layout" && (
               <div
                 role="separator"
                 aria-label="调整编辑与预览宽度"
@@ -691,6 +713,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 aria-valuemin={34}
                 aria-valuemax={60}
                 aria-valuenow={splitRatio}
+                aria-valuetext={`内容宽度 ${Math.round(splitRatio)}%，内容在${previewOnLeft ? "右" : "左"}侧`}
                 tabIndex={0}
                 className="hidden cursor-col-resize touch-none items-center justify-center rounded hover:bg-paper-200 focus:bg-paper-200 xl:flex"
                 onPointerDown={(e) =>
@@ -705,7 +728,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                         60,
                         Math.max(
                           34,
-                          ((e.clientX - rect.left) / rect.width) * 100
+                          ((previewOnLeft ? rect.right - e.clientX : e.clientX - rect.left) / rect.width) * 100
                         )
                       )
                     );
@@ -722,7 +745,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                         ? 43
                         : Math.max(
                             34,
-                            Math.min(60, r + (e.key === "ArrowLeft" ? -2 : 2))
+                            Math.min(60, r + (e.key === "ArrowLeft" ? -2 : 2) * (previewOnLeft ? -1 : 1))
                           )
                     );
                   }
@@ -731,7 +754,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 <span className="h-12 w-1 rounded bg-ink-200" />
               </div>
             )}
-            {editorMode !== "content" && (
+            {pane === "preview" && editorMode !== "content" && (
               <div
                 className={cx(
                   "editor-preview min-w-0 rounded-xl border border-line bg-white",
@@ -740,10 +763,12 @@ export default function Editor({ resumeId }: { resumeId: string }) {
                 data-testid="live-preview"
               >
                 <ResumePreview resume={resume} onLayout={setLivePages}
+                  tools={<><Btn size="sm" variant="ghost" onClick={() => { setSettingsTab('template'); setSettingsOpen(true); }}>模板与版式</Btn><Btn size="sm" variant="ghost" onClick={() => setOnePageOpen(true)}>篇幅调整</Btn></>}
                   location={previewLocation}
                   onLocate={(sectionId, blockId) => locate(sectionId, blockId, true)} />
               </div>
             )}
+            </Fragment>)}
           </div>
         </main>
 
@@ -810,7 +835,13 @@ export default function Editor({ resumeId }: { resumeId: string }) {
               {panelTab === "ai" ? (
                 <AIPanel resume={resume} activeTarget={activeTarget} />
               ) : (
-                <JDPanel resume={resume} onLocate={locate} />
+                <>
+                  {resume.target && app.jds[resumeId] && <div className="border-b border-line p-3 text-[13px]">
+                    <p className="mb-2 text-ink-600">{hasReviewedTarget(resume, app.jds[resumeId], app.snapshots) ? '当前内容与岗位已核对' : app.snapshots.some(s => s.resume_id === resumeId && s.label === '岗位内容已核对') ? '内容或岗位有新修改，请重新核对' : '核对相关经历后，可记录本次确认'}</p>
+                    {!hasReviewedTarget(resume, app.jds[resumeId], app.snapshots) && <Btn size="sm" onClick={() => app.captureSnapshot(resumeId, '岗位内容已核对', 'manual')}>确认岗位内容已核对</Btn>}
+                  </div>}
+                  <JDPanel resume={resume} onLocate={locate} />
+                </>
               )}
             </div>
           </aside>
@@ -1148,13 +1179,18 @@ export default function Editor({ resumeId }: { resumeId: string }) {
             onChange={(e) => setNewSecTitle(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && newSecTitle.trim()) {
-                app.addSection(resumeId, newSecTitle.trim());
+                app.addSection(resumeId, newSecTitle.trim(), newSecStructure);
                 setNewSecTitle("");
                 setAddSecOpen(false);
                 app.toast("ok", "栏目已添加");
               }
             }}
           />
+          <label className="mt-3 block text-[13px]">内容结构
+            <select data-ui-select aria-label="自定义栏目内容结构" className="field-input mt-1" value={newSecStructure} onChange={e => setNewSecStructure(e.target.value as Block['type'])}>
+              <option value="summary">文本</option><option value="custom_text">列表</option><option value="work_experience_item">经历（含角色与时间）</option>
+            </select>
+          </label>
           <div className="mt-3 flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddSecOpen(false)}>
               取消
@@ -1163,7 +1199,7 @@ export default function Editor({ resumeId }: { resumeId: string }) {
               variant="primary"
               disabled={!newSecTitle.trim()}
               onClick={() => {
-                app.addSection(resumeId, newSecTitle.trim());
+                app.addSection(resumeId, newSecTitle.trim(), newSecStructure);
                 setNewSecTitle("");
                 setAddSecOpen(false);
                 app.toast("ok", "栏目已添加");

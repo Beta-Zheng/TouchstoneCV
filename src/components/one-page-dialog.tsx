@@ -25,7 +25,7 @@ const titleOf = (block: ReturnType<typeof visibleFitEntries>[number]['block']) =
 export default function OnePageDialog({ resume, onClose, onEdit }: {
   resume: Resume; onClose: () => void; onEdit?: (sectionId: string, blockId: string) => void;
 }) {
-  const app = useAppSlice('jds', 'duplicateResume', 'renameResume', 'setTheme', 'patchBlock', 'captureSnapshot', 'go');
+  const app = useAppSlice('jds', 'duplicateResume', 'renameResume', 'setResumeOptions', 'setTheme', 'patchBlock', 'captureSnapshot', 'go');
   const jd = app.jds[resume.id];
   const terms = useMemo(() => [...(jd?.structured.skills ?? []), ...(jd?.structured.keywords ?? [])], [jd]);
   const [targetPages, setTargetPages] = useState<1 | 2 | null>(null);
@@ -125,6 +125,7 @@ export default function OnePageDialog({ resume, onClose, onEdit }: {
     const copyId = app.duplicateResume(resume.id); if (!copyId) return;
     const count = preview!.measurement.pages.length;
     app.renameResume(copyId, `${resume.title} · ${count}页版`); app.setTheme(copyId, draft.theme);
+    app.setResumeOptions(copyId, { page_limit: targetPages! });
     for (const entry of entries) if (hidden.has(entry.block.block_id)) app.patchBlock(copyId, entry.section.section_id, entry.block.block_id, { visible: false });
     app.captureSnapshot(copyId, `${count}页篇幅调整完成`);
     app.go({ name: 'editor', resumeId: copyId }); onClose();

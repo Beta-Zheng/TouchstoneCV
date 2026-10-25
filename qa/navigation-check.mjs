@@ -28,6 +28,25 @@ try{
  const locatedPage=await highlighted.evaluate(el=>el.closest('[data-preview-page]').dataset.previewPage);assert(Number(locatedPage)>1);
  const focusPreserved=await field.evaluate(el=>el===document.activeElement);assert(focusPreserved);
  const panes=()=>page.evaluate(()=>({edit:document.querySelector('.editor-content').scrollTop,preview:document.querySelector('.editor-preview').scrollTop,page:document.scrollingElement.scrollTop}));
+ // Reorder actual DOM nodes, preserve form state/scroll, and keep resizing directional.
+ const priorSwap=await panes();
+ const contentWidth=await page.locator('.editor-content').evaluate(el=>el.getBoundingClientRect().width);
+ await page.getByRole('button',{name:'切换左右',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('.editor-preview').getBoundingClientRect().left < document.querySelector('.editor-content').getBoundingClientRect().left);
+ assert.equal(await entry.getByRole('button',{name:'折叠',exact:true}).count(),1);
+ assert.deepEqual(await panes(),priorSwap);
+ assert(Math.abs(await page.locator('.editor-content').evaluate(el=>el.getBoundingClientRect().width)-contentWidth)<1);
+ assert.equal(await page.locator('.editor-split').evaluate(el=>el.firstElementChild.classList.contains('editor-preview')),true);
+ const divider=page.getByRole('separator',{name:'调整编辑与预览宽度',exact:true});
+ await divider.focus();await divider.press('ArrowLeft');assert.equal(await divider.getAttribute('aria-valuenow'),'45');
+ await divider.press('Home');assert.equal(await divider.getAttribute('aria-valuenow'),'43');
+ const dragBounds=await divider.boundingBox();
+ await page.mouse.move(dragBounds.x+dragBounds.width/2,dragBounds.y+100);await page.mouse.down();
+ await page.mouse.move(dragBounds.x-30,dragBounds.y+100);await page.mouse.up();
+ assert(Number(await divider.getAttribute('aria-valuenow'))>43);
+ await divider.press('Home');
+ await page.screenshot({path:'.export-qa/editor-swap-left.png'});
+ await field.focus();
  const beforeTyping=await panes();assert(beforeTyping.preview>0);assert.equal(beforeTyping.page,0);
  // Ordinary typing must not generate another positioning request or reset the pane.
  await field.press('ArrowRight');assert.deepEqual(await panes(),beforeTyping);
@@ -119,11 +138,18 @@ try{
  await page.locator('.editor-preview').evaluate(el=>el.scrollTop=0);
  await page.getByRole('button',{name:'定位预览',exact:true}).click();
  await page.waitForFunction(()=>{const pane=document.querySelector('.editor-preview');const target=pane.querySelector('[data-preview-page] [data-resume-entry="nav-entry-0"]');const top=target.getBoundingClientRect().top;const toolbar=pane.querySelector('[data-preview-toolbar]').getBoundingClientRect();return top>=toolbar.bottom-1&&top<toolbar.bottom+20;});
+ await page.screenshot({path:'.export-qa/editor-preview-left.png'});
+ await page.reload();
+ await page.getByRole('button',{name:'切换左右',exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'切换左右',exact:true}).getAttribute('aria-pressed'),'true');
+ assert(await page.locator('.editor-preview').evaluate(el=>el.getBoundingClientRect().left < document.querySelector('.editor-content').getBoundingClientRect().left));
+ await page.getByRole('button',{name:'切换左右',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('.editor-content').getBoundingClientRect().left < document.querySelector('.editor-preview').getBoundingClientRect().left);
  // Mobile preview activation returns to content rather than trying to force a split screen.
  await page.setViewportSize({width:375,height:850});await page.getByRole('tab',{name:'仅预览',exact:true}).click();
  const mobileTarget=page.locator('[data-testid="live-preview"] [data-preview-page] [data-resume-entry="nav-entry-1"]');await mobileTarget.click();
  await page.getByRole('tab',{name:'写内容',exact:true}).waitFor();assert.equal(await page.getByRole('tab',{name:'写内容',exact:true}).getAttribute('aria-selected'),'true');
  await page.locator('.editor-content [data-block-id="nav-entry-1"][data-editor-location]').waitFor();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),375);
- assert.deepEqual(errors,[]);console.log(JSON.stringify({laterPage:locatedPage,editorFocusPreserved:true,previewScrollIndependent:true,menusDoNotNavigate:true,sameEntryDoesNotNavigate:true,visibleTargetDoesNotScroll:true,semanticHeadings:true,markerSurvivesRepagination:true,rovingKeyboard:true,singleTabStop:true,smoothScrollAndZoom:true,oversizedTargetCanBeLocated:true,typingDoesNotRescroll:true,keyboardActivation:true,collapsedEntryExpanded:true,hiddenEntryNotRevealed:true,sourceUnchanged:true,mobile:true,errors},null,2));
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({laterPage:locatedPage,swapSides:true,swapPreservesScrollAndEntries:true,swapPersistsOnReload:true,reverseDividerKeyboard:true,reverseDividerDrag:true,editorFocusPreserved:true,previewScrollIndependent:true,menusDoNotNavigate:true,sameEntryDoesNotNavigate:true,visibleTargetDoesNotScroll:true,semanticHeadings:true,markerSurvivesRepagination:true,rovingKeyboard:true,singleTabStop:true,smoothScrollAndZoom:true,oversizedTargetCanBeLocated:true,typingDoesNotRescroll:true,keyboardActivation:true,collapsedEntryExpanded:true,hiddenEntryNotRevealed:true,sourceUnchanged:true,mobile:true,errors},null,2));
 }finally{await browser.close();await server.close();}

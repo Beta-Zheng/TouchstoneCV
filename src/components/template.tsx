@@ -7,7 +7,7 @@
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { Block, Resume, Section, SectionType, HeaderLayoutKey, BulletStyleKey } from "../types";
 import { cx, fontStack, densityVars, isRichHtml, resolveBulletStyle, sanitizeInline, bulletPairs, stripHtml } from "../lib/utils";
-import { localizedResume } from "../lib/workflow";
+import { localizedResume, blockHasContent } from "../lib/workflow";
 import { IconArrowRight, IconAward, IconBriefcase, IconCheck, IconFolderGit, IconGraduationCap, IconLayers, IconUser, IconWrench } from "./icons";
 
 function orderedVisible(data: Resume["data"]): Section[] {
@@ -322,7 +322,7 @@ function SectionBadge({ section, color, shape }: { section: Section; color: stri
 
 function SectionBlock({ section, style }: { section: Section; style: TStyle }) {
   const blocks = visibleBlocks(section);
-  if (section.type === "summary" && !blocks.some((b) => b.description || b.bullets.some(Boolean))) return null;
+  if (section.type === "summary" && !blocks.some(blockHasContent)) return null;
   if (blocks.length === 0 && section.type !== "summary") return null;
   const { color, isATS } = style;
   // 模块级要点样式优先，未设置时继承全局默认
@@ -350,7 +350,7 @@ function SectionBlock({ section, style }: { section: Section; style: TStyle }) {
 
 function AcademicSectionBlock({ section, color, headerLayout, bulletStyle }: { section: Section; color: string; headerLayout: HeaderLayoutKey; bulletStyle: BulletStyleKey }) {
   const blocks = visibleBlocks(section);
-  if (section.type === "summary" && !blocks.some((b) => b.description || b.bullets.some(Boolean))) return null;
+  if (section.type === "summary" && !blocks.some(blockHasContent)) return null;
   if (blocks.length === 0 && section.type !== "summary") return null;
   // 模块级要点样式优先，未设置时继承全局默认
   const bs = resolveBulletStyle(section.bullet_style, bulletStyle);
