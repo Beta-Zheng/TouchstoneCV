@@ -46,7 +46,7 @@ export function moduleFilled(r: Resume, type: SectionType): boolean {
       s.visible &&
       s.blocks.some((b) => {
         if (!b.visible) return false;
-        if (type === "skills") return b.skills.some(hasText);
+        if (type === "skills") return [b.description, ...b.bullets, ...b.skills].some(hasText);
         if (type === "summary")
           return hasText(b.description) || b.bullets.some(hasText);
         if (["work_experience", "project_experience"].includes(type))
@@ -109,8 +109,12 @@ export function inspectResume(r: Resume): ResumeIssue[] {
     !moduleFilled(r, "education")
   )
     add("education", "校招、实习简历建议补充教育经历");
-  if (!moduleFilled(r, "skills"))
-    add("skills", "建议填写与岗位相关的真实技能", undefined, undefined, "info");
+  if (!moduleFilled(r, "skills")) {
+    const candidate = r.data.sections.find(s => s.type === 'custom' && sectionHasContent(s) &&
+      /^(专业技能|技能|技术能力|技术栈|核心技能|skills|technical skills)$/i.test(s.title.trim()));
+    add("skills", candidate ? `「${candidate.title}」可在栏目设置中确认为技能类型` : "可选：补充技能，或将已有栏目确认为技能类型",
+      candidate?.section_id ?? r.data.sections.find(s => s.type === 'skills')?.section_id, undefined, "info");
+  }
   for (const s of r.data.sections.filter(
     (s) => s.visible && s.type !== "basic_info"
   )) {
@@ -304,4 +308,37 @@ export function createCoverLetterDraft(
     body,
     updated_at: nowISO(),
   };
+}
+
+/** Group visible results without losing filtered/orphaned copies or looping over imported cycles. */
+export function groupResumeFamilies(list: Resume[], all: Resume[]) {
+  const byId = new Map(all.map(r => [r.id, r]));
+  const groups = new Map<string, { id: string; title: string; resumes: Resume[] }>();
+  for (const resume of list) {
+    let root = resume;
+    const seen = new Set<string>();
+    let cycleStart: string | undefined;
+    while (!seen.has(root.id)) {
+      seen.add(root.id);
+      const parentId = root.copy_source_id || root.target?.source_resume_id;
+      const parent = parentId ? byId.get(parentId) : undefined;
+      if (!parent) break;
+      if (seen.has(parent.id)) { cycleStart = parent.id; break; }
+      root = parent;
+    }
+    // A malformed cycle is grouped deterministically, and every result remains reachable.
+    const path = [...seen];
+    const key = cycleStart ? path.slice(path.indexOf(cycleStart)).sort()[0] : root.id;
+    const group = groups.get(key) ?? { id: key, title: byId.get(key)?.title ?? root.title, resumes: [] };
+    group.resumes.push(resume); groups.set(key, group);
+  }
+  return [...groups.values()].map(group => ({ ...group, resumes: [...group.resumes].sort((a,b) => Number(b.id === group.id) - Number(a.id === group.id)) }));
+}
+
+export function isCurrentExport(resume: Resume, jd: JD | undefined, snapshot: ResumeSnapshot) {
+  return snapshot.resume_id === resume.id && snapshot.kind === 'export' &&
+    JSON.stringify(snapshot.resume.data) === JSON.stringify(resume.data) &&
+    JSON.stringify(snapshot.resume.theme) === JSON.stringify(resume.theme) &&
+    snapshot.resume.template_id === resume.template_id && snapshot.resume.locale === resume.locale &&
+    snapshot.jd?.raw_text === jd?.raw_text;
 }

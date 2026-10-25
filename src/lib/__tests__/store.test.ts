@@ -590,3 +590,30 @@ describe("真实 store 的 AI 与恢复流程", () => {
     expect(useApp.getState().suggestions[0].status).toBe("failed");
   });
 });
+
+describe('栏目与副本的兼容性', () => {
+  it('确认栏目类型只改变用途，文字、富文本和条目ID保持不变', () => {
+    const app=useApp.getState();
+    const before=structuredClone(app.resumes[0].data.sections[0]);
+    app.setSectionType('resume_test',before.section_id,'skills');
+    const after=useApp.getState().resumes[0].data.sections[0];
+    expect(after).toEqual({...before,type:'skills'});
+  });
+  it('新建自定义经历的后续条目保持结构', () => {
+    const app=useApp.getState();app.addSection('resume_test','志愿经历','work_experience_item');
+    const section=useApp.getState().resumes[0].data.sections.slice(-1)[0];
+    app.addBlock('resume_test',section.section_id);
+    expect(useApp.getState().resumes[0].data.sections.slice(-1)[0].blocks.map(b=>b.type)).toEqual(['work_experience_item','work_experience_item']);
+  });
+  it('副本来源和目标页数经过备份合并后仍关联新ID', () => {
+    const app=useApp.getState();const copyId=app.duplicateResume('resume_test')!;
+    app.setResumeOptions(copyId,{page_limit:2});
+    const backup=JSON.stringify(createBackup(useApp.getState()));
+    expect(parseBackup(backup,[]).resumes.find(r=>r.id===copyId)?.page_limit).toBe(2);
+    app.importData(backup,'merge');
+    const imported=useApp.getState().resumes.find(r=>r.id!==copyId && r.copy_source_id)!;
+    expect(imported.copy_source_id).not.toBe('resume_test');
+    expect(useApp.getState().resumes.some(r=>r.id===imported.copy_source_id)).toBe(true);
+    expect(imported.page_limit).toBe(2);
+  });
+});

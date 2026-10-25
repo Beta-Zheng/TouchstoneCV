@@ -6,6 +6,8 @@ import {
   localizedResume,
   createCoverLetterDraft,
   hasReviewedTarget,
+  groupResumeFamilies,
+  isCurrentExport,
 } from "../workflow";
 import { paginateResume } from "../pagination";
 import { testBlock, testResume } from "./fixtures";
@@ -150,4 +152,48 @@ describe("简历核心流程", () => {
     expect(hashView("#/editor/%ZZ")).toBeNull();
     expect(hashView("#/unknown")).toBeNull();
   });
+});
+
+describe('工作台关系与检查', () => {
+  it('自定义技能提示确认分类而不是缺失，确认后按正文检查', () => {
+    const r = testResume();
+    r.data.sections.push({ section_id:'custom_skills', type:'custom', title:'专业技能', visible:true, order:4,
+      blocks:[{...testBlock(), block_id:'skill_text', type:'custom_text', title:'', description:'熟悉 React', bullets:[], skills:[]}] });
+    expect(inspectResume(r).find(i=>i.id==='skills')?.message).toContain('确认为技能类型');
+    r.data.sections.slice(-1)[0].type='skills';
+    expect(moduleFilled(r,'skills')).toBe(true);
+    expect(inspectResume(r).some(i=>i.id==='skills')).toBe(false);
+    r.data.sections.slice(-1)[0].blocks[0].visible=false;
+    expect(moduleFilled(r,'skills')).toBe(false);
+  });
+  it('来源归组包含岗位与篇幅副本，过滤、缺失来源和循环不会丢失条目', () => {
+    const root=testResume(); root.id='root';
+    const job={...structuredClone(root),id:'job',target:{company:'示例',job_title:'工程师',source_resume_id:'root'}};
+    const copy={...structuredClone(job),id:'copy',copy_source_id:'job'};
+    const all=[copy,job,root];
+    expect(groupResumeFamilies(all,all).map(g=>g.resumes.map(r=>r.id))).toEqual([['root','copy','job']]);
+    expect(groupResumeFamilies([copy],all)[0].id).toBe('root');
+    expect(groupResumeFamilies([copy],[copy])[0].resumes).toHaveLength(1);
+    root.copy_source_id='copy';
+    expect(groupResumeFamilies(all,all)).toHaveLength(1);
+    expect(groupResumeFamilies(all,all)[0].resumes).toHaveLength(3);
+    const leaf={...structuredClone(root),id:'aaa_leaf',copy_source_id:'copy'};
+    expect(groupResumeFamilies([leaf,...all],[leaf,...all])).toHaveLength(1);
+  });
+  it('历史导出不能代表修改后的当前简历已准备', () => {
+    const r=testResume();
+    const snapshot={id:'export',resume_id:r.id,kind:'export',label:'PDF',created_at:r.updated_at,resume:structuredClone(r)} as ResumeSnapshot;
+    expect(isCurrentExport(r,undefined,snapshot)).toBe(true);
+    r.theme.font_size+=1;
+    expect(isCurrentExport(r,undefined,snapshot)).toBe(false);
+  });
+});
+
+it('待办入口可刷新与返回，路由拒绝无关参数', () => {
+  const editor = {name:'editor' as const,resumeId:'resume_test',panel:'ai' as const};
+  const due = {name:'applications' as const,dueOnly:true};
+  expect(hashView(viewHash(editor))).toEqual(editor);
+  expect(hashView(viewHash(due))).toEqual(due);
+  expect(hashView('#/home?panel=ai')).toBeNull();
+  expect(hashView('#/editor/resume_test?panel=unknown')).toBeNull();
 });

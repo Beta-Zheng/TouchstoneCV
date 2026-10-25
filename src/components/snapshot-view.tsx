@@ -5,20 +5,23 @@ import { Modal, ModalHeader } from "./ui";
 export default function SnapshotView({
   snapshot,
   onClose,
+  application = false,
 }: {
   snapshot: ResumeSnapshot;
+  application?: boolean;
   onClose: () => void;
 }) {
   return (
     <Modal open onClose={onClose} width="max-w-4xl">
       <ModalHeader
-        title="查看保存版本（只读）"
+        title={application ? "当时投递的简历（只读）" : "查看保存版本（只读）"}
         sub={`${snapshot.label} · ${new Date(
           snapshot.created_at
         ).toLocaleString()} · ${snapshot.resume.title}`}
         onClose={onClose}
       />
       <div className="max-h-[75vh] overflow-auto px-5 pb-5">
+        {application && <p className="mb-3 text-[13px] text-ink-600">这是本条投递关联的固定版本，后续编辑当前简历不会改变这里的内容。</p>}
         {snapshot.summary && (
           <p className="mb-3 text-[12px] text-ink-500">{snapshot.summary}</p>
         )}

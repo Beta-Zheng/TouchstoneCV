@@ -358,11 +358,11 @@ function AppShell() {
             }
           >
             {view.name === "editor" && (
-              <Editor key={view.resumeId} resumeId={view.resumeId} />
+              <Editor key={`${view.resumeId}:${view.panel ?? ""}`} resumeId={view.resumeId} initialPanel={view.panel} />
             )}
             {view.name === "models" && <Models />}
             {view.name === "settings" && <Settings />}
-            {view.name === "applications" && <Applications />}
+            {view.name === "applications" && <Applications initialDueOnly={view.dueOnly} />}
           </Suspense>
         </motion.div>
       </main>

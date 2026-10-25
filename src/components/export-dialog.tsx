@@ -44,7 +44,8 @@ export default function ExportDialog({
   planRef.current = plan;
   const [busy, setBusy] = useState(false);
   const [prepared, setPrepared] = useState(false);
-  const issues = inspectResume(resume);
+  const [ignored, setIgnored] = useState<string[]>([]);
+  const issues = inspectResume(resume).filter(issue => !ignored.includes(issue.id));
   const ready = plan?.source === resume;
   const [filename, setFilename] = useState(() => [resume.data.basic_info.name || '简历', resume.target?.company,
     resume.target?.job_title || resume.data.basic_info.title, fmtDateCompact(nowISO())].filter(Boolean).join('_'));
@@ -121,16 +122,18 @@ export default function ExportDialog({
           </details>
           {issues.length ? (
             <ul className="space-y-2">
-              {issues.map((issue) => (
+              {[...issues].sort((a,b) => Number(b.severity === "warning") - Number(a.severity === "warning")).map((issue) => (
                 <li
                   key={issue.id}
-                  className={`rounded-lg p-2 text-[11px] ${
+                  className={`rounded-lg p-2 text-[13px] ${
                     issue.severity === "warning"
                       ? "bg-danger-100 text-danger-700"
                       : "bg-paper-100 text-ink-500"
                   }`}
                 >
-                  {issue.message}
+                  <span className="mb-1 block font-medium">{issue.severity === "warning" ? "需要核对" : "可选建议"}</span>
+                  <span>{issue.message}</span>
+                  {issue.severity === "info" && <button className="ml-2 underline" onClick={() => setIgnored(ids => [...ids, issue.id])}>本次忽略</button>}
                   {issue.sectionId && (
                     <button
                       className="ml-2 underline"

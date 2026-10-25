@@ -255,7 +255,7 @@ export function ApplicationForm({
   );
 }
 
-export default function Applications() {
+export default function Applications({ initialDueOnly = false }: { initialDueOnly?: boolean }) {
   const app = useAppSlice(
     "applications",
     "resumes",
@@ -265,7 +265,7 @@ export default function Applications() {
   );
   const [edit, setEdit] = useState<Application | "new" | null>(null);
   const [quick, setQuick] = useState<Application | null>(null);
-  const [dueOnly, setDueOnly] = useState(false);
+  const [dueOnly, setDueOnly] = useState(initialDueOnly);
   const [remove, setRemove] = useState<Application | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
@@ -295,6 +295,11 @@ export default function Applications() {
           新增记录
         </Btn>
       </div>
+      {stats.followups > 0 && <div className="mt-5 flex items-center justify-between gap-3 rounded-lg bg-brand-50 p-4">
+        <p className="text-[14px] font-medium">今天有 {stats.followups} 条投递需要跟进</p>
+        <Btn onClick={() => { setDueOnly(true); setStatus('all'); setQuery(''); }}>查看待跟进</Btn>
+      </div>}
+      {app.applications.length > 0 && <>
       <div className="my-5 grid grid-cols-2 gap-3 border-y border-line py-4 lg:grid-cols-4">
         {[
           ["累计已投递", stats.submitted],
@@ -413,11 +418,15 @@ export default function Applications() {
           ))}
         </select>
       </div>
-      {!list.length && (
-        <p className="rounded-xl border border-dashed border-line p-8 text-center text-ink-500">
-          {app.resumes.length ? "还没有符合条件的投递记录" : "请先创建一份简历"}
-        </p>
-      )}
+      </>}
+      {!list.length && <section className="mt-5 rounded-xl border border-dashed border-line p-8 text-center">
+        <h2 className="font-semibold">{app.applications.length ? '没有符合条件的投递记录' : '记录第一次投递'}</h2>
+        <p className="mt-2 text-[13px] text-ink-500">{app.applications.length ? '试试其他条件，或查看全部记录。' : '关联当时的简历版本，后续在这里更新面试、反馈与跟进日期。'}</p>
+        <div className="mt-4">
+          {app.applications.length ? <Btn onClick={() => { setQuery(''); setStatus('all'); setDueOnly(false); }}>清除筛选</Btn> :
+            app.resumes.some(r => !r.archived_at) ? <Btn variant="primary" onClick={() => setEdit('new')}>记录第一次投递</Btn> : <Btn variant="primary" onClick={() => app.go({name:'home'})}>前往创建简历</Btn>}
+        </div>
+      </section>}
       <div className="grid gap-3 lg:grid-cols-2">
         {list.map((a) => (
           <article
@@ -512,7 +521,7 @@ export default function Applications() {
       )}
       {quick && <QuickFeedback initial={quick} onClose={() => setQuick(null)} />}
       {viewSnapshot && (
-        <SnapshotView
+        <SnapshotView application
           snapshot={viewSnapshot}
           onClose={() => setViewSnapshot(null)}
         />

@@ -13,6 +13,7 @@ import type {
   BulletStyleKey,
   Resume,
   Section,
+  SectionType,
 } from "../types";
 import { ACTION_LABELS, BULLET_STYLE_OPTIONS, SECTION_LABELS } from "../types";
 import {
@@ -202,7 +203,7 @@ function RichTextEditor({
   const emit = () => {
     const el = ref.current;
     if (!el) return;
-    onChange(el.innerHTML);
+    if (el.innerHTML !== prepEditorHtml(value)) onChange(el.innerHTML);
   };
   return (
     <div className="inline-editor relative">
@@ -431,6 +432,7 @@ function BulletStyleSelect({
 }
 
 function BulletsEdit({
+  label = "主要成果",
   value,
   marks,
   onChange,
@@ -439,6 +441,7 @@ function BulletsEdit({
   onBulletStyleChange,
 }: {
   value: string[];
+  label?: string;
   /** 与 value 平行的勾选标记；缺省视为全部勾选（历史数据兼容） */
   marks?: boolean[];
   onChange: (v: string[]) => void;
@@ -478,7 +481,7 @@ function BulletsEdit({
   return (
     <div className="sm:col-span-2 min-w-0">
       <div className="mb-1 flex items-center gap-2">
-        <span className="field-label mb-0">主要成果</span>
+        <span className="field-label mb-0">{label}</span>
         <div className="ml-auto">
           <BulletStyleSelect
             value={bulletStyle}
@@ -521,7 +524,7 @@ function BulletsEdit({
                   ariaLabel={`成果 ${i + 1}`}
                   value={b}
                   onChange={(html) => update(i, html)}
-                  placeholder="做了什么，带来了什么结果"
+                  placeholder={label === "主要成果" ? "做了什么，带来了什么结果" : "输入一条内容"}
                 />
               </div>
               <div className="achievement-actions flex shrink-0 flex-col">
@@ -560,7 +563,7 @@ function BulletsEdit({
           onClick={add}
           className="self-start inline-flex items-center gap-1 text-[12px] font-medium text-brand-600 transition hover:text-brand-700"
         >
-          <IconPlus size={12} /> 添加成果
+          <IconPlus size={12} /> {label === "主要成果" ? "添加成果" : "添加要点"}
         </button>
       </div>
     </div>
@@ -703,6 +706,8 @@ export function BlockCard({
   const moreRef = useRef<HTMLDivElement>(null);
   useActionMenu(moreOpen, setMoreOpen, moreRef);
   const jd = useApp((s) => s.jds[resume.id]);
+  const [showPoints, setShowPoints] = useState(block.bullets.length > 0);
+  const [showExtras, setShowExtras] = useState(!!block.subtitle || !!block.subtitles?.length);
   const isEntry = [
     "work_experience_item",
     "project_experience_item",
@@ -742,7 +747,7 @@ export function BlockCard({
           )}
         </button>
         <span className="chip shrink-0 bg-paper-200 font-mono text-ink-500">
-          {TYPE_LABEL[block.type]}
+          {section.type === "custom" && block.type === "summary" ? "文本" : TYPE_LABEL[block.type]}
         </span>
         <span
           className={cx(
@@ -891,7 +896,7 @@ export function BlockCard({
                     placeholder={
                       block.type === "education_item"
                         ? "XX 大学"
-                        : "公司 / 项目名"
+                        : block.type === "custom_text" ? "分类或标题（可选）" : "公司 / 项目名"
                     }
                     onChange={(e) =>
                       patchBlock(
@@ -904,13 +909,13 @@ export function BlockCard({
                   />
                 </F>
               )}
-              {(isEntry || block.type === "custom_text") && (
+              {(isEntry || (block.type === "custom_text" && (showExtras || !!block.subtitle || !!block.subtitles?.length))) && (
                 <Fragment>
                   <F
                     label={
                       block.type === "education_item"
                         ? "专业与学历"
-                        : "职位或角色"
+                        : block.type === "custom_text" ? "补充信息" : "职位或角色"
                     }
                   >
                     <input
@@ -919,7 +924,7 @@ export function BlockCard({
                       placeholder={
                         block.type === "education_item"
                           ? "专业 · 学历"
-                          : "职位 / 角色"
+                          : block.type === "custom_text" ? "补充说明（可选）" : "职位 / 角色"
                       }
                       onChange={(e) =>
                         patchBlock(
@@ -931,6 +936,8 @@ export function BlockCard({
                       }
                     />
                   </F>
+                  <details className="sm:col-span-2" open={block.subtitles?.length ? true : undefined}>
+                    <summary className="cursor-pointer text-[12px] text-ink-500">更多补充信息</summary>
                   {(block.subtitles ?? []).length > 0 && (
                     <div className="sm:col-span-2 flex flex-col gap-1.5">
                       {block.subtitles!.map((st, i) => (
@@ -992,6 +999,7 @@ export function BlockCard({
                   >
                     <IconPlus size={12} /> {block.type === 'education_item' ? '补充专业与学历' : '补充职位或角色'}
                   </button>
+                  </details>
                 </Fragment>
               )}
               {isEntry && (
@@ -1053,8 +1061,9 @@ export function BlockCard({
                  * 焦点被按钮抢走，用户表现为「描述无法编辑」。要点区正是用了 div 包装
                  * 才一直正常。两处编辑器的结构必须保持一致（均为 div，见 BulletsEdit）。 */
                 <div className="sm:col-span-2 min-w-0">
-                  <span className="field-label">经历概述（可选）</span>
+                  <span className="field-label">{section.type === "summary" ? "个人总结" : section.type === "skills" ? "技能说明" : "正文"}</span>
                   <RichTextEditor
+                    ariaLabel={section.type === "summary" ? "个人总结" : "正文"}
                     value={block.description}
                     onChange={(html) =>
                       patchBlock(
@@ -1064,7 +1073,7 @@ export function BlockCard({
                         { description: html }
                       )
                     }
-                    placeholder="概括与你的目标岗位相关的经历与优势"
+                    placeholder={section.type === "summary" ? "简要介绍经验、专长与代表成果" : "填写内容"}
                   />
                 </div>
               ) : null}
@@ -1104,10 +1113,11 @@ export function BlockCard({
                 </F>
               )}
 
-              {(isEntry ||
-                block.type === "custom_text" ||
-                block.type === "summary") && (
+              {block.type === "custom_text" && !(showExtras || block.subtitle || block.subtitles?.length) && <button className="text-left text-[13px] text-ink-500" onClick={() => setShowExtras(true)}>添加补充信息</button>}
+              {((block.type === "summary" || block.type === "custom_text") && !(showPoints || block.bullets.length > 0)) && <button className="sm:col-span-2 text-left text-[13px] text-brand-700" onClick={() => setShowPoints(true)}>添加要点列表</button>}
+              {(isEntry || ((block.type === "custom_text" || block.type === "summary") && (showPoints || block.bullets.length > 0))) && (
                 <BulletsEdit
+                  label={block.type === "summary" ? "总结要点" : block.type === "custom_text" ? "内容要点" : block.type === "education_item" ? "在校经历（可选）" : "主要成果"}
                   value={block.bullets}
                   marks={block.bullet_marks}
                   onChange={(v) =>
@@ -1166,12 +1176,14 @@ export function SectionCard({
     deleteSection,
     renameSection,
     setSectionBulletStyle,
+    setSectionType,
   } = useAppSlice(
     "addBlock",
     "toggleSection",
     "deleteSection",
     "renameSection",
-    "setSectionBulletStyle"
+    "setSectionBulletStyle",
+    "setSectionType"
   );
   const [confirmDel, setConfirmDel] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -1214,9 +1226,7 @@ export function SectionCard({
           />
         ) : (
           <h3
-            className="cursor-text font-display text-[16px] font-bold text-ink-900"
-            onClick={() => section.type === "custom" && setEditingTitle(true)}
-            title={section.type === "custom" ? "点击重命名" : undefined}
+            className="font-display text-[16px] font-bold text-ink-900"
           >
             {section.title}
             {section.type === "custom" && (
@@ -1232,6 +1242,20 @@ export function SectionCard({
           </span>
         )}
         <div className="ml-auto flex items-center gap-1">
+          {section.type !== 'basic_info' && <details className="relative">
+            <summary className="cursor-pointer px-2 py-2 text-[12px] text-ink-500">栏目设置</summary>
+            <div className="absolute right-0 z-20 w-52 rounded-lg border border-line bg-white p-3 shadow-lg">
+              <label className="text-[13px]">栏目用途
+                <select data-ui-select aria-label={`栏目用途：${section.title}`} className="field-input mt-1" value={section.type}
+                  onChange={e => setSectionType(resume.id, section.section_id, e.target.value as Exclude<SectionType, 'basic_info'>)}>
+                  {Object.entries(SECTION_LABELS).filter(([type]) => type !== 'basic_info').map(([type,label]) => <option key={type} value={type}>{label}</option>)}
+                </select>
+              </label>
+              <p className="mt-2 text-[12px] text-ink-500">用于内容检查，保留现有文字与条目。</p>
+              <button className="mt-2 text-[13px] text-brand-700" onClick={() => setEditingTitle(true)}>重命名栏目</button>
+            </div>
+          </details>}
+
           <button
             className="tool-btn"
             onClick={() => toggleSection(resume.id, section.section_id)}

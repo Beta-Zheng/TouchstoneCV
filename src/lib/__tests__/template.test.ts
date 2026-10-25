@@ -15,3 +15,10 @@ describe("基本信息格式与预览一致", () => {
     expect(markup).toContain("<strong");
   });
 });
+
+it.each(['modern_single_column','classic_ats','academic_photo'])('%s 确认栏目用途不隐藏只有标题的现有内容', template => {
+  const resume=testResume();resume.template_id=template;
+  resume.data.sections[0].type='summary';
+  resume.data.sections[0].blocks=resume.data.sections[0].blocks.slice(0,1).map(b=>({...b,title:'保留原有标题',description:'',bullets:[]}));
+  expect(renderToStaticMarkup(createElement(A4Sheet,{resume}))).toContain('保留原有标题');
+});

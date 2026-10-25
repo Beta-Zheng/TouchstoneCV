@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { IconEdit } from "./icons";
 import type { Resume } from "../types";
@@ -14,8 +14,10 @@ export default function ResumePreview({
   onLayout,
   location,
   onLocate,
+  tools,
 }: {
   resume: Resume;
+  tools?: ReactNode;
   onLayout?: (pages: PageLayout[], measurement: ReturnType<typeof readResumeLayout>) => void;
   location?: ResumeLocation | null;
   onLocate?: (sectionId: string, blockId?: string) => void;
@@ -135,7 +137,8 @@ export default function ResumePreview({
         <span className="text-[11px] text-ink-500">
           预览 · {pages.length} 页
         </span>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
+          {tools}
           {(["fit", 0.75, 1] as const).map((value) => (
             <Btn
               key={value}
